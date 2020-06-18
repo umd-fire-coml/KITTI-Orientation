@@ -27,9 +27,13 @@ dims_avg = {'Cyclist': np.array([ 1.73532436,  0.58028152,  1.77413709]), 'Van':
 
 
 #### Placeholder
+# list of input images for each obj
 inputs = tf.placeholder(tf.float32, shape = [None, 224, 224, 3])
+# list of dims for each obj
 d_label = tf.placeholder(tf.float32, shape = [None, 3])
+# list of (2,2) sin, cos values of each bin/sector (2 bins by default) for each obj
 o_label = tf.placeholder(tf.float32, shape = [None, BIN, 2])
+# list of confs of each bin/sector for each obj
 c_label = tf.placeholder(tf.float32, shape = [None, BIN])
 
 
