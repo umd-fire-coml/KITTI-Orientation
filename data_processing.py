@@ -45,7 +45,8 @@ def parse_annotation(label_dir, image_dir):
             line = line.strip().split(' ')
             truncated = np.abs(float(line[1]))
             occluded  = np.abs(float(line[2]))
-
+            
+            # if the class is in VEHICLES and not truncated not occluded
             if line[0] in VEHICLES and truncated < 0.1 and occluded < 0.1:
                 # offset to make new_alpha, so that if car is head facing the camera, new_alpha = pi
                 # , and if car is back facing the camera, new_alpha = 0
@@ -56,7 +57,7 @@ def parse_annotation(label_dir, image_dir):
                 # make new_alpha always <= 2pi, equivalent to if new_alpha > 2.*np.pi: new_alpha = new_alpha - 2.*np.pi
                 new_alpha = new_alpha - int(new_alpha/(2.*np.pi))*(2.*np.pi)
 
-                obj = {'name':line[0],
+                obj = {'name':line[0], # class
                        'image':image_file,
                        'xmin':int(float(line[4])),
                        'ymin':int(float(line[5])),
@@ -75,7 +76,7 @@ def parse_annotation(label_dir, image_dir):
                 dims_avg[obj['name']] /= dims_cnt[obj['name']]
 
                 all_objs.append(obj)
-    # I have now accumulated all objects into all_objs from kitti data
+    # I have now accumulated all objects into all_objs from kitti data in obj dict format
                 
     ###### flip data
     for obj in all_objs:
@@ -83,25 +84,31 @@ def parse_annotation(label_dir, image_dir):
         # Get the dimensions offset from average (basically zero centering the values)
         obj['dims'] = obj['dims'] - dims_avg[obj['name']]
 
-        # Fix orientation and confidence for no flip
+        # Get orientation and confidence values for no flip
+        # set all values as zeros for each orientation (2x2 values) and conf  (2 values, each value represents the sector)
         orientation = np.zeros((BIN,2))
         confidence = np.zeros(BIN)
 
+        # get the sector id and offset from center of each sector if its within +-94.5 deg from the center
         anchors = compute_anchors(obj['new_alpha'])
 
         for anchor in anchors:
+            # compute the cos and sin of the offset angles 
             orientation[anchor[0]] = np.array([np.cos(anchor[1]), np.sin(anchor[1])])
+            # set confidence of the sector to 1 
             confidence[anchor[0]] = 1.
 
+        # if in both sectors, then each confidence is 1/2, this makes sure sum of confidence adds up to 1
         confidence = confidence / np.sum(confidence)
 
         obj['orient'] = orientation
         obj['conf'] = confidence
 
-        # Fix orientation and confidence for flip
+        # Get orientation and confidence values for flip
         orientation = np.zeros((BIN,2))
         confidence = np.zeros(BIN)
 
+        # flip the camera angle across 0 deg
         anchors = compute_anchors(2.*np.pi - obj['new_alpha'])
         for anchor in anchors:
             orientation[anchor[0]] = np.array([np.cos(anchor[1]), np.sin(anchor[1])])
@@ -114,7 +121,7 @@ def parse_annotation(label_dir, image_dir):
             
     return all_objs
 
-
+# get the bounding box,  values for the instance
 def prepare_input_and_output(image_dir, train_inst):
     ### Prepare image patch
     xmin = train_inst['xmin'] #+ np.random.randint(-MAX_JIT, MAX_JIT+1)
@@ -123,6 +130,7 @@ def prepare_input_and_output(image_dir, train_inst):
     ymax = train_inst['ymax'] #+ np.random.randint(-MAX_JIT, MAX_JIT+1)
     img = cv2.imread(image_dir + train_inst['image'])
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # crop the image using the obj bounding box, deepcopy to prevent memory sharing
     img = copy.deepcopy(img[ymin:ymax+1,xmin:xmax+1]).astype(np.float32)
     
     # re-color the image
@@ -135,16 +143,18 @@ def prepare_input_and_output(image_dir, train_inst):
     #img = img * (1 + t)
     #img = img / (255. * 2.)
 
-    # flip the image
+    # flip the image by random chance
     flip = np.random.binomial(1, .5)
+    # flip image horizonatally
     if flip > 0.5: img = cv2.flip(img, 1)
         
     # resize the image to standard size
     img = cv2.resize(img, (NORM_H, NORM_W))
+    # zero center the image values around these (avg?) RGB values
     img = img - np.array([[[103.939, 116.779, 123.68]]])
     #img = img[:,:,::-1]
     
-    ### Fix orientation and confidence
+    ### if the image crop is flipped also flip the orientation values
     if flip > 0.5:
         return img, train_inst['dims'], train_inst['orient_flipped'], train_inst['conf_flipped']
     else:
@@ -156,20 +166,26 @@ def data_gen(image_dir, all_objs, batch_size):
     keys = range(num_obj)
     np.random.shuffle(keys)
     
+    # start index
     l_bound = 0
+    # end index
     r_bound = batch_size if batch_size < num_obj else num_obj
     
     while True:
+        # if batch accumulated
         if l_bound == r_bound:
+            # reset l_bound and r_bound
             l_bound  = 0
             r_bound = batch_size if batch_size < num_obj else num_obj
+            # shuffle obj idxs
             np.random.shuffle(keys)
         
         currt_inst = 0
-        x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))
-        d_batch = np.zeros((r_bound - l_bound, 3))
-        o_batch = np.zeros((r_bound - l_bound, BIN, 2))
-        c_batch = np.zeros((r_bound - l_bound, BIN))
+        # set placeholder values
+        x_batch = np.zeros((r_bound - l_bound, 224, 224, 3)) # batch of images
+        d_batch = np.zeros((r_bound - l_bound, 3)) # batch of dimensions
+        o_batch = np.zeros((r_bound - l_bound, BIN, 2)) # batch of cos,sin values for each bin
+        c_batch = np.zeros((r_bound - l_bound, BIN)) # batch of confs for each bin
         
         for key in keys[l_bound:r_bound]:
             # augment input image and fix object's orientation and confidence
