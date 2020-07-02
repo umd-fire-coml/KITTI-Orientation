@@ -103,6 +103,11 @@ def parse_annotation(label_dir, image_dir):
 
         obj['orient'] = orientation
         obj['conf'] = confidence
+        
+        
+        # add our implementation here
+        obj['tri_sector_affinity'] = ???
+        
 
         # Get orientation and confidence values for flip
         orientation = np.zeros((BIN,2))
@@ -118,6 +123,9 @@ def parse_annotation(label_dir, image_dir):
 
         obj['orient_flipped'] = orientation
         obj['conf_flipped'] = confidence
+        
+        # add our implementation here
+        obj['tri_sector_affinity_flipped'] = ???
             
     return all_objs
 
