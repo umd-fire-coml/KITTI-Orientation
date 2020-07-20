@@ -4,15 +4,15 @@ import cv2, os
 import numpy as np
 import time
 from random import shuffle
-from data_processing import *
+from data_processing import data_gen
 import sys
 import argparse
 from tqdm import tqdm
 
 #####
 #Training setting
-
 BIN, OVERLAP = 2, 0.1
+TRICOSINE_BINS = 3
 W = 1.
 ALPHA = 1.
 MAX_JIT = 3
@@ -25,9 +25,21 @@ save_path = './model/'
 
 dims_avg = {'Cyclist': np.array([ 1.73532436,  0.58028152,  1.77413709]), 'Van': np.array([ 2.18928571,  1.90979592,  5.07087755]), 'Tram': np.array([  3.56092896,   2.39601093,  18.34125683]), 'Car': np.array([ 1.52159147,  1.64443089,  3.85813679]), 'Pedestrian': np.array([ 1.75554637,  0.66860882,  0.87623049]), 'Truck': np.array([  3.07392252,   2.63079903,  11.2190799 ])}
 
+#### custom layers and loss functions
+def LeakyReLU(x, alpha):
+    return tf.nn.relu(x) - alpha * tf.nn.relu(-x)
 
+def multibin_orientation_loss(y_true, y_pred):
+    # Find number of anchors
+    anchors = tf.reduce_sum(tf.square(y_true), axis=2)
+    anchors = tf.greater(anchors, tf.constant(0.5))
+    anchors = tf.reduce_sum(tf.cast(anchors, tf.float32), 1)
 
+    # Define the loss
+    loss = (y_true[:,:,0]*y_pred[:,:,0] + y_true[:,:,1]*y_pred[:,:,1])
+    loss = tf.reduce_sum((2 - 2 * tf.reduce_mean(loss,axis=0))) / anchors
 
+    return tf.reduce_mean(loss)
 
 def build_model(orientation_type):
     #### Placeholder
@@ -40,22 +52,6 @@ def build_model(orientation_type):
     # list of confidences of each multibin sector for each obj
     c_label = tf.placeholder(tf.float32, shape = [None, BIN])
     
-    #### custom layers and loss functions
-    def LeakyReLU(x, alpha):
-      return tf.nn.relu(x) - alpha * tf.nn.relu(-x)
-
-    def multibin_orientation_loss(y_true, y_pred):
-      # Find number of anchors
-      anchors = tf.reduce_sum(tf.square(y_true), axis=2)
-      anchors = tf.greater(anchors, tf.constant(0.5))
-      anchors = tf.reduce_sum(tf.cast(anchors, tf.float32), 1)
-
-      # Define the loss
-      loss = (y_true[:,:,0]*y_pred[:,:,0] + y_true[:,:,1]*y_pred[:,:,1])
-      loss = tf.reduce_sum((2 - 2 * tf.reduce_mean(loss,axis=0))) / anchors
-
-      return tf.reduce_mean(loss)
-
     #####
     #Build Graph
     with slim.arg_scope([slim.conv2d, slim.fully_connected],
@@ -95,6 +91,34 @@ def build_model(orientation_type):
 
         total_loss = 4. * loss_d + 8. * loss_o + loss_c
         
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(total_loss)
+
+        return orientation, confidence, total_loss, optimizer
+        
+    if orientation_type == 'tricosine':
+        orientation = slim.fully_connected(orientation, TRICOSINE_BINS, activation_fn=None, scope='fc8_o')
+        orientation = tf.nn.l2_normalize(orientation, dim=2)
+        loss_o = multibin_orientation_loss(o_label, orientation)
+    if orientation_type == 'alpha':
+        # TODO
+    if orientation_type == 'rotation_y':
+        # TODO
+
+        
+def train(image_dir, box2d_loc, label_dir, orientation_type):
+
+    # load data & gen data
+    all_objs = parse_annotation(label_dir, image_dir)
+    all_exams  = len(all_objs)
+    np.random.shuffle(all_objs)
+    # TODO update data_gen
+    train_gen = data_gen(image_dir, all_objs, BATCH_SIZE)
+    train_num = int(np.ceil(all_exams/BATCH_SIZE))
+    
+    ### buile graph
+    if orientation_type == 'multibin':
+        dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
+        
     if orientation_type == 'tricosine':
         # TODO
     if orientation_type == 'alpha':
@@ -102,22 +126,6 @@ def build_model(orientation_type):
     if orientation_type == 'rotation_y':
         # TODO
     
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(total_loss)
-
-    return dimension, orientation, confidence, total_loss, optimizer
-
-
-def train(image_dir, box2d_loc, label_dir, orientation_type):
-
-    # load data & gen data
-    all_objs = parse_annotation(label_dir, image_dir)
-    all_exams  = len(all_objs)
-    np.random.shuffle(all_objs)
-    train_gen = data_gen(image_dir, all_objs, BATCH_SIZE)
-    train_num = int(np.ceil(all_exams/BATCH_SIZE))
-    
-    ### buile graph
-    dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
 
     ### GPU config
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
@@ -141,7 +149,6 @@ def train(image_dir, box2d_loc, label_dir, orientation_type):
     # Initializing the variables
     init = tf.global_variables_initializer()
     sess.run(init)
-
 
     # Start to train model
     for epoch in range(epochs):
@@ -260,7 +267,7 @@ if __name__ == "__main__":
         parser.add_argument('--output', dest = 'output', help='Output path', default = './validation/result_2/')
         parser.add_argument('--model', dest = 'model', help='trained model path')
         parser.add_argument('--gpu', dest = 'gpu', default= '0')
-        parser.add_argument('--orientation', dest = 'orientation_type', help='Orientation type: tricosine, multibin, or alpha', default= 'tricosine')
+        parser.add_argument('--orientation', dest = 'orientation_type', help='Orientation type: tricosine, multibin, alpha, or rotation_y', default= 'tricosine')
         args = parser.parse_args()
         return args
     
@@ -276,11 +283,11 @@ if __name__ == "__main__":
     if args.mode == 'train':
         if args.label is None:
             raise IOError(('Label not found.'.format(args.label)))
-            
+        # train with selected orientation type
         train(args.image, args.box2d, args.label, args.orientation_type)
     else:
         if args.model is None:
             raise IOError(('Model not found.'.format(args.model)))
-
+        # train with selected orientation type
         test(args.model, args.image, args.box2d, args.output, args.orientation_type)
 
