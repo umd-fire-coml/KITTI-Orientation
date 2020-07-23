@@ -59,6 +59,7 @@ def build_model(orientation_type):
                       weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
                       weights_regularizer=slim.l2_regularizer(0.0005)):
     # VGG backbone
+    # TODO convert to xception backbone written in keras
     net = slim.repeat(inputs, 2, slim.conv2d, 64, [3, 3], scope='conv1')
     net = slim.max_pool2d(net, [2, 2], scope='pool1')
     net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
@@ -71,11 +72,13 @@ def build_model(orientation_type):
     net = slim.max_pool2d(net, [2, 2], scope='pool5')
     conv5 = tf.contrib.layers.flatten(net)
 
-    orientation = slim.fully_connected(conv5, 256, activation_fn=None, scope='fc7_o')
-    orientation = LeakyReLU(orientation, 0.1)
-    orientation = slim.dropout(orientation, 0.5, scope='dropout7_o')
+
     
     if orientation_type == 'multibin':
+        orientation = slim.fully_connected(conv5, 256, activation_fn=None, scope='fc7_o')
+        orientation = LeakyReLU(orientation, 0.1)
+        orientation = slim.dropout(orientation, 0.5, scope='dropout7_o')
+
         orientation = slim.fully_connected(orientation, BIN*2, activation_fn=None, scope='fc8_o')
         orientation = tf.reshape(orientation, [-1, BIN, 2])
         orientation = tf.nn.l2_normalize(orientation, dim=2)
@@ -170,6 +173,8 @@ def train(image_dir, box2d_loc, label_dir, orientation_type):
         tStop_epoch = time.time()
         print "Epoch Time Cost:", round(tStop_epoch - tStart_epoch,2), "s"
         sys.stdout.flush()
+
+        # TODO save train and validation results of every epoch to a dataframe file
 
 def test(model, image_dir, box2d_loc, box3d_loc):
 
