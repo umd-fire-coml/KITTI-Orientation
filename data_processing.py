@@ -102,7 +102,7 @@ def compute_anchors(angle):
     return anchors
 
 
-def parse_annotation(label_dir, image_dir):
+def parse_annotation(label_dir, image_dir,mode = 'train'):
     all_objs = []
     dims_avg = {key: np.array([0, 0, 0]) for key in VEHICLES}
     dims_cnt = {key: 0 for key in VEHICLES}
