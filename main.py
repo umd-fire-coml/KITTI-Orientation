@@ -42,10 +42,6 @@ def multibin_orientation_loss(y_true, y_pred):
     return tf.reduce_mean(loss)
 
 
-def l2_loss(o_label, orientation):
-    return (o_label-orientation)**2
-# For classification, is it better to use categorical_crossentropy loss?
-
 
 
 def build_model(orientation_type):
@@ -97,16 +93,16 @@ def build_model(orientation_type):
         orientation = slim.fully_connected(orientation, TRICOSINE_BINS, activation_fn=None, scope='fc8_o')
         orientation = tf.nn.l2_normalize(orientation, dim=2)
         loss_o = multibin_orientation_loss(o_label, orientation)
+    if orientation_type == 'tricosine':
+        loss = tf.keras.losses.mean_squared_error(y_true=, y_pred=)
     if orientation_type == 'alpha':
-        # l2
-        # TODO
+        loss = tf.keras.losses.mean_squared_error(y_true=, y_pred=)
     if orientation_type == 'rotation_y':
-        # l2
-        # TODO
-    if orientation_type == 'alpha_sectors':
-        # l2
-    if orientation_type == 'rotation_y_sectors':
-        # l2
+        loss = tf.keras.losses.mean_squared_error(y_true=, y_pred=)
+    if orientation_type == 'alpha_sector':
+        loss = tf.keras.losses.categorical_crossentropy(y_true=, y_pred=)
+    if orientation_type == 'rotation_y_sector':
+        loss = tf.keras.losses.categorical_crossentropy(y_true=, y_pred=)
         
 def train(image_dir, box2d_loc, label_dir, orientation_type):
 
@@ -123,12 +119,15 @@ def train(image_dir, box2d_loc, label_dir, orientation_type):
         dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
         
     if orientation_type == 'tricosine':
-        # TODO
+
     if orientation_type == 'alpha':
-        # TODO
+
     if orientation_type == 'rotation_y':
-        # TODO
-    
+
+    if orientation_type = 'alpha_sector':
+
+    if orientation_type = 'rotation_y_sector':
+
 
     ### GPU config
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
