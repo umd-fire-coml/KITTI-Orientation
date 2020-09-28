@@ -101,6 +101,14 @@ def compute_anchors(angle):
 
     return anchors
 
+def alpha_deg_to_sector_affinity(angle):
+    if (angle<np.tau/3):
+
+        return [0,0,0]
+    elif(angle<2*np.tau/3):
+        return [0,0,0]
+    else:
+        return [0,0,0]
 
 def parse_annotation(label_dir, image_dir,mode = 'train'):
     all_objs = []
@@ -176,7 +184,7 @@ def parse_annotation(label_dir, image_dir,mode = 'train'):
         obj['conf'] = confidence
 
         # add our implementation here
-        obj['tri_sector_affinity'] = alpha_deg_to_sector_affinity(
+        obj['tri_sector_affinity'] =  alpha_deg_to_sector_affinity(
             obj['new_alpha'])
 
         # Get orientation and confidence values for flip
@@ -196,7 +204,7 @@ def parse_annotation(label_dir, image_dir,mode = 'train'):
         obj['conf_flipped'] = confidence
 
         # add our implementation here
-        obj['tri_sector_affinity_flipped'] = sector_affinity_to_alpha_deg(
+        obj['tri_sector_affinity_flipped'] = alpha_deg_to_sector_affinity(
             2.*np.pi - obj - obj['new_alpha'])
 
     return all_objs
@@ -244,7 +252,7 @@ def prepare_input_and_output(image_dir, train_inst):
         return img, train_inst['dims'], train_inst['orient'], train_inst['conf']
 
 
-def data_gen(image_dir, all_objs, batch_size):
+def data_gen(image_dir, all_objs, batch_size,mode = 'default'):
     num_obj = len(all_objs)
 
     keys = range(num_obj)
