@@ -36,7 +36,7 @@ def alpha_rad_to_tricoine(alpha_rad, sectors=3):
     return sector_affinity
 
 
-def tricosine_to_alpha_rad(sector_affinity, sectors=3):
+def tricosine_to_alpha_rad(sector_affinity,sectors=3):
     # calculate center sector offset
     SECTOR_WIDTH = math.tau / sectors
     center_sector_id = np.argmax(sector_affinity)
