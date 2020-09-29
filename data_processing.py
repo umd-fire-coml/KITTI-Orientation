@@ -11,7 +11,7 @@ import copy
 BIN, OVERLAP = 2, 0.1
 NORM_H, NORM_W = 224, 224
 VEHICLES = ['Car', 'Truck', 'Van', 'Tram', 'Pedestrian', 'Cyclist']
-
+NUM_CATS = 4
 
 # make sure that math.tau isn't causint issues
 def alpha_rad_to_tricoine(alpha_rad, sectors=3):
@@ -76,7 +76,10 @@ def tricosine_to_alpha_rad(sector_affinity, sectors=3):
     sum_cos_alpha_rads = np.sum(np.cos(alpha_rads))
     mean_alpha_rads = np.arctan2(sum_sin_alpha_rads, sum_cos_alpha_rads)
     return mean_alpha_rads
-
+def angle2cat(angle:int, n:int = 4)->float:
+    if angle<0:
+        angle += np.tau
+    return int(angle/(np.tau/n))
 
 def compute_anchors(angle):
     # angle is the new_alpha angle between 0 and 2pi
@@ -100,15 +103,6 @@ def compute_anchors(angle):
         anchors.append([r_index % BIN, angle - r_index*wedge])
 
     return anchors
-
-def alpha_deg_to_sector_affinity(angle):
-    if (angle<np.tau/3):
-
-        return [0,0,0]
-    elif(angle<2*np.tau/3):
-        return [0,0,0]
-    else:
-        return [0,0,0]
 
 def parse_annotation(label_dir, image_dir,mode = 'train'):
     all_objs = []
@@ -184,9 +178,9 @@ def parse_annotation(label_dir, image_dir,mode = 'train'):
         obj['conf'] = confidence
 
         # add our implementation here
-        obj['tri_sector_affinity'] =  alpha_deg_to_sector_affinity(
+        obj['tri_sector_affinity'] =  alpha_rad_to_tricoine(
             obj['new_alpha'])
-
+        obj['alpha_cat'] = angle2cat(obj['new_alpha'])
         # Get orientation and confidence values for flip
         orientation = np.zeros((BIN, 2))
         confidence = np.zeros(BIN)
@@ -202,9 +196,8 @@ def parse_annotation(label_dir, image_dir,mode = 'train'):
 
         obj['orient_flipped'] = orientation
         obj['conf_flipped'] = confidence
-
         # add our implementation here
-        obj['tri_sector_affinity_flipped'] = alpha_deg_to_sector_affinity(
+        obj['tri_sector_affinity_flipped'] = alpha_rad_to_tricoine(
             2.*np.pi - obj - obj['new_alpha'])
 
     return all_objs
@@ -280,7 +273,7 @@ def data_gen(image_dir, all_objs, batch_size,mode = 'default'):
         o_batch = np.zeros((r_bound - l_bound, BIN, 2))
         # batch of confs for each bin
         c_batch = np.zeros((r_bound - l_bound, BIN))
-
+        acat_batch = np.zeros((r_bound-l_bound,NUM_CATS))
         for key in keys[l_bound:r_bound]:
             # augment input image and fix object's orientation and confidence
             image, dimension, orientation, confidence = prepare_input_and_output(
