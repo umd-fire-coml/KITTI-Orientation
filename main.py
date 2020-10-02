@@ -41,7 +41,7 @@ def multibin_orientation_loss(y_true, y_pred):
 
     return tf.reduce_mean(loss)
 
-def build_model(orientation_type):
+def build_model():
     #### Placeholder
     # list of input images for each obj
     inputs = tf.placeholder(tf.float32, shape = [None, 224, 224, 3])
@@ -72,41 +72,42 @@ def build_model(orientation_type):
     net = slim.max_pool2d(net, [2, 2], scope='pool5')
     conv5 = tf.contrib.layers.flatten(net)
 
+    orientation = slim.fully_connected(conv5, 256, activation_fn=None, scope='fc7_o')
+    orientation = LeakyReLU(orientation, 0.1)
+    orientation = slim.dropout(orientation, 0.5, scope='dropout7_o')
 
+    orientation = slim.fully_connected(orientation, BIN*2, activation_fn=None, scope='fc8_o')
+    orientation = tf.reshape(orientation, [-1, BIN, 2])
+    orientation = tf.nn.l2_normalize(orientation, dim=2)
+    loss_o = multibin_orientation_loss(o_label, orientation)
     
-    if orientation_type == 'multibin':
-        orientation = slim.fully_connected(conv5, 256, activation_fn=None, scope='fc7_o')
-        orientation = LeakyReLU(orientation, 0.1)
-        orientation = slim.dropout(orientation, 0.5, scope='dropout7_o')
+    confidence = slim.fully_connected(conv5, 256, activation_fn=None, scope='fc7_c')
+    confidence = LeakyReLU(confidence, 0.1)
+    confidence = slim.dropout(confidence, 0.5, scope='dropout7_c')
+    confidence = slim.fully_connected(confidence, BIN, activation_fn=None, scope='fc8_c')
+    loss_c = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=c_label, logits=confidence))
 
-        orientation = slim.fully_connected(orientation, BIN*2, activation_fn=None, scope='fc8_o')
-        orientation = tf.reshape(orientation, [-1, BIN, 2])
-        orientation = tf.nn.l2_normalize(orientation, dim=2)
-        loss_o = multibin_orientation_loss(o_label, orientation)
-        
-        confidence = slim.fully_connected(conv5, 256, activation_fn=None, scope='fc7_c')
-        confidence = LeakyReLU(confidence, 0.1)
-        confidence = slim.dropout(confidence, 0.5, scope='dropout7_c')
-        confidence = slim.fully_connected(confidence, BIN, activation_fn=None, scope='fc8_c')
-        loss_c = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=c_label, logits=confidence))
+    confidence = tf.nn.softmax(confidence)
 
-        confidence = tf.nn.softmax(confidence)
+    total_loss = 4. * loss_d + 8. * loss_o + loss_c
+    
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(total_loss)
 
-        total_loss = 4. * loss_d + 8. * loss_o + loss_c
-        
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(total_loss)
+    return orientation, confidence, total_loss, optimizer
+  
+####################################
+### Initial Code to build model: ###
+####################################
 
-        return orientation, confidence, total_loss, optimizer
-        
-    if orientation_type == 'tricosine':
-        orientation = slim.fully_connected(orientation, TRICOSINE_BINS, activation_fn=None, scope='fc8_o')
-        orientation = tf.nn.l2_normalize(orientation, dim=2)
-        loss_o = multibin_orientation_loss(o_label, orientation)
-    if orientation_type == 'alpha':
-        # TODO
-    if orientation_type == 'rotation_y':
-        # TODO
-
+# def build_model(orient_type):
+#     x = Xception()
+#     if orient_type == 'multibin':
+#         o, c = add_output_layers(orient_type, x)
+#     else
+#         o = add_output_layers(orient_type, x)
+# 
+#     Continue building model -> loss function + optimizer
+#     
         
 def train(image_dir, box2d_loc, label_dir, orientation_type):
 
@@ -118,16 +119,18 @@ def train(image_dir, box2d_loc, label_dir, orientation_type):
     train_gen = data_gen(image_dir, all_objs, BATCH_SIZE)
     train_num = int(np.ceil(all_exams/BATCH_SIZE))
     
+    orientation, confidence, loss, optimizer = build_model()
+    
     ### buile graph
-    if orientation_type == 'multibin':
-        dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
+    # if orientation_type == 'multibin':
+    #     dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
         
-    if orientation_type == 'tricosine':
-        # TODO
-    if orientation_type == 'alpha':
-        # TODO
-    if orientation_type == 'rotation_y':
-        # TODO
+    # if orientation_type == 'tricosine':
+    #     # TODO
+    # if orientation_type == 'alpha':
+    #     # TODO
+    # if orientation_type == 'rotation_y':
+    #     # TODO
     
 
     ### GPU config
@@ -179,7 +182,8 @@ def train(image_dir, box2d_loc, label_dir, orientation_type):
 def test(model, image_dir, box2d_loc, box3d_loc):
 
     ### buile graph
-    dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
+    orientation, confidence, loss, optimizer = build_model()
+    # dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
 
     ### GPU config 
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
