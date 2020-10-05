@@ -4,7 +4,8 @@ import math
 import numpy as np
 import cv2
 import copy
-
+import tensorflow.keras.utils.Sequence as Sequence
+import warnings
 #import tensorflow as tf
 #####
 # Training setting
@@ -236,7 +237,8 @@ def prepare_input_and_output(image_dir, train_inst):
     img = cv2.resize(img, (NORM_H, NORM_W))
     # zero center the image values around these (avg?) RGB values
     img = img - np.array([[[103.939, 116.779, 123.68]]])
-    #img = img[:,:,::-1]
+    # convert to rgb
+    img = img[:,:,::-1]
 
     # if the image crop is flipped also flip the orientation values
     if flip > 0.5:
@@ -245,7 +247,68 @@ def prepare_input_and_output(image_dir, train_inst):
         return img, train_inst['dims'], train_inst['orient'], train_inst['conf']
 
 
-def data_gen(image_dir, all_objs, batch_size,mode = 'default'):
+class KittiGenerator(Sequence):
+
+    '''Creates A KittiGenerator Sequence
+    Args:
+        label_dir (str) : path to the directory with labels
+        image_dir (str) : path to the image directory
+        mode (str): tells whether to be in train or test mode
+        batch_size (int) : tells batchsize to use
+    '''
+    def __init__(self,label_dir:str,image_dir:str,mode = "train",batch_size = 8,**kwargs):
+        self.label_dir = label_dir
+        self.image_dir = image_dir
+        self.all_objs = parse_annotation(label_dir,image_dir,mode)
+        self.mode = mode
+        self.batch_size = batch_size
+        if mode!='train':
+            warnings.warn("testing mode has not been inplemented yet")
+        self._clen = len(self)
+        self._keys = range(self._clen)
+        np.random.shuffle(self._keys)
+        self.alpha_m = False
+        if 'alpha' in kwargs and kwargs['alpha']:
+            warnings.warn("alpha mode has not been inplemented yet")
+            self.alpha_m = True
+        
+
+    def __len__(self):
+        return len(self.all_objs)
+
+    def __getitem__(self,idx):
+        l_bound = idx
+        r_bound = self.batch_size+idx 
+        r_bound = r_bound if r_bound<self._clen else self._clen
+        x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))  # batch of images
+        d_batch = np.zeros((r_bound - l_bound, 3))  # batch of dimensions
+        # batch of cos,sin values for each bin
+        o_batch = np.zeros((r_bound - l_bound, BIN, 2))
+        # batch of confs for each bin
+        c_batch = np.zeros((r_bound - l_bound, BIN))
+        acat_batch = np.zeros((r_bound-l_bound,NUM_CATS))
+        currt_inst = 0
+        for key in self._keys[l_bound:r_bound]:
+            image, dimension, orientation, confidence = prepare_input_and_output(
+                self.image_dir, self.all_objs[key])
+            x_batch[currt_inst, :] = image
+            d_batch[currt_inst, :] = dimension
+            o_batch[currt_inst, :] = orientation
+            c_batch[currt_inst, :] = confidence
+            if self.alpha_m:
+                acat_batch[currt_inst,angle2cat(self.all_objs[key]['new_alpha'])] = 1
+            currt_inst += 1
+        
+    
+    def on_epoch_end(self):
+        np.random.shuffle(self._keys)
+            
+
+
+
+'''
+def data_gen(image_dir, all_objs, batch_size,**kwargs):
+
     num_obj = len(all_objs)
 
     keys = range(num_obj)
@@ -289,7 +352,9 @@ def data_gen(image_dir, all_objs, batch_size,mode = 'default'):
             d_batch[currt_inst, :] = dimension
             o_batch[currt_inst, :] = orientation
             c_batch[currt_inst, :] = confidence
-
+            if 'alpha_mode' in kwargs:
+                if kwargs['alpha_mode']:
+                    acat_batch[currt_inst,angle2cat(all_objs[key]['new_alpha'])] = 1
             currt_inst += 1
 
         yield x_batch, [d_batch, o_batch, c_batch]
@@ -298,3 +363,4 @@ def data_gen(image_dir, all_objs, batch_size,mode = 'default'):
         r_bound = r_bound + batch_size
         if r_bound > num_obj:
             r_bound = num_obj
+'''
