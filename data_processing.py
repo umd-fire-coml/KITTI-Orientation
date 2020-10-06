@@ -104,7 +104,7 @@ def compute_anchors(angle):
         anchors.append([r_index % BIN, angle - r_index*wedge])
 
     return anchors
-
+# this creates the full dict from the train val directories
 def parse_annotation(label_dir, image_dir,mode = 'train'):
     all_objs = []
     dims_avg = {key: np.array([0, 0, 0]) for key in VEHICLES}
@@ -204,8 +204,7 @@ def parse_annotation(label_dir, image_dir,mode = 'train'):
     return all_objs
 
 # get the bounding box,  values for the instance
-
-
+# this automatically does flips
 def prepare_input_and_output(image_dir, train_inst):
     # Prepare image patch
     xmin = train_inst['xmin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
@@ -264,16 +263,18 @@ class KittiGenerator(Sequence):
         self.batch_size = batch_size
         if mode!='train':
             warnings.warn("testing mode has not been inplemented yet")
+        if mode!='val':
+            warnings.warn("validation mode has not been inplemented yet")
         self._clen = len(self)
         self._keys = range(self._clen)
         np.random.shuffle(self._keys)
         self.alpha_m = False
+        self.epochs = 0
         if 'alpha' in kwargs and kwargs['alpha']:
             warnings.warn("alpha mode has not been inplemented yet")
             self.alpha_m = True
-        
 
-    def __len__(self):
+    def __len__(self)->int:
         return len(self.all_objs)
 
     def __getitem__(self,idx):
@@ -298,13 +299,17 @@ class KittiGenerator(Sequence):
             if self.alpha_m:
                 acat_batch[currt_inst,angle2cat(self.all_objs[key]['new_alpha'])] = 1
             currt_inst += 1
-        
-    
+        if self.alpha_m:
+            raise Exception("ALPHA MODE UNIMPLEMENTED")
+        return x_batch, [d_batch, o_batch, c_batch]
+
     def on_epoch_end(self):
         np.random.shuffle(self._keys)
+        self.epochs+=1
+    
+    def __str__(self):
+        return "KittiDatagenerator:<size %d,image_dir:%s,label_dir:%s,epoch:%d>"%(len(self),self.image_dir,self.label_dir,self.epochs)
             
-
-
 
 '''
 def data_gen(image_dir, all_objs, batch_size,**kwargs):
