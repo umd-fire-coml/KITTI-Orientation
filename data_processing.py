@@ -1,10 +1,10 @@
-#! /bin/python3
+#! python3
 import os
 import math
 import numpy as np
 import cv2
 import copy
-import tensorflow.keras.utils.Sequence as Sequence
+from tensorflow.keras.utils import Sequence
 import warnings
 #import tensorflow as tf
 #####
@@ -77,6 +77,7 @@ def tricosine_to_alpha_rad(sector_affinity, sectors=3):
     sum_cos_alpha_rads = np.sum(np.cos(alpha_rads))
     mean_alpha_rads = np.arctan2(sum_sin_alpha_rads, sum_cos_alpha_rads)
     return mean_alpha_rads
+
 def angle2cat(angle:int, n:int = 4)->float:
     if angle<0:
         angle += np.tau
@@ -216,16 +217,6 @@ def prepare_input_and_output(image_dir, train_inst):
     # crop the image using the obj bounding box, deepcopy to prevent memory sharing
     img = copy.deepcopy(img[ymin:ymax+1, xmin:xmax+1]).astype(np.float32)
 
-    # re-color the image
-    #img += np.random.randint(-2, 3, img.shape).astype('float32')
-    #t  = [np.random.uniform()]
-    #t += [np.random.uniform()]
-    #t += [np.random.uniform()]
-    #t = np.array(t)
-
-    #img = img * (1 + t)
-    #img = img / (255. * 2.)
-
     # flip the image by random chance
     flip = np.random.binomial(1, .5)
     # flip image horizonatally
@@ -301,6 +292,8 @@ class KittiGenerator(Sequence):
             currt_inst += 1
         if self.alpha_m:
             raise Exception("ALPHA MODE UNIMPLEMENTED")
+        if self.alpha_m:
+            return x_batch, [d_batch, o_batch, c_batch,acat_batch]
         return x_batch, [d_batch, o_batch, c_batch]
 
     def on_epoch_end(self):
@@ -309,63 +302,3 @@ class KittiGenerator(Sequence):
     
     def __str__(self):
         return "KittiDatagenerator:<size %d,image_dir:%s,label_dir:%s,epoch:%d>"%(len(self),self.image_dir,self.label_dir,self.epochs)
-            
-
-'''
-def data_gen(image_dir, all_objs, batch_size,**kwargs):
-
-    num_obj = len(all_objs)
-
-    keys = range(num_obj)
-    np.random.shuffle(keys)
-
-    # start index
-    l_bound = 0
-    # end index
-    r_bound = batch_size if batch_size < num_obj else num_obj
-
-    while True:
-        # if batch accumulated
-        if l_bound == r_bound:
-            # reset l_bound and r_bound
-            l_bound = 0
-            r_bound = batch_size if batch_size < num_obj else num_obj
-            # shuffle obj idxs
-            np.random.shuffle(keys)
-
-        currt_inst = 0
-        # set placeholder values
-        x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))  # batch of images
-        d_batch = np.zeros((r_bound - l_bound, 3))  # batch of dimensions
-        # batch of cos,sin values for each bin
-        o_batch = np.zeros((r_bound - l_bound, BIN, 2))
-        # batch of confs for each bin
-        c_batch = np.zeros((r_bound - l_bound, BIN))
-        acat_batch = np.zeros((r_bound-l_bound,NUM_CATS))
-        for key in keys[l_bound:r_bound]:
-            # augment input image and fix object's orientation and confidence
-            image, dimension, orientation, confidence = prepare_input_and_output(
-                image_dir, all_objs[key])
-
-            # plt.figure(figsize=(5,5))
-            #plt.imshow(image/255./2.); plt.show()
-            #print dimension
-            #print orientation
-            #print confidence
-
-            x_batch[currt_inst, :] = image
-            d_batch[currt_inst, :] = dimension
-            o_batch[currt_inst, :] = orientation
-            c_batch[currt_inst, :] = confidence
-            if 'alpha_mode' in kwargs:
-                if kwargs['alpha_mode']:
-                    acat_batch[currt_inst,angle2cat(all_objs[key]['new_alpha'])] = 1
-            currt_inst += 1
-
-        yield x_batch, [d_batch, o_batch, c_batch]
-
-        l_bound = r_bound
-        r_bound = r_bound + batch_size
-        if r_bound > num_obj:
-            r_bound = num_obj
-'''
