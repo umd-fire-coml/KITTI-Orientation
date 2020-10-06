@@ -820,6 +820,8 @@ bool eval(string gt_dir, string result_dir, Mail* mail){
   std::vector<int32_t> indices = getEvalIndices(result_dir);
   printf("number of files for evaluation: %d\n", (int)indices.size());
 
+  // LOOP BELOW FOR LOADING IN THE GROUND TRUTHS AND DETECTIONS
+  // -----------------------------------------------------------
   for (int32_t i=0; i<indices.size(); i++) {
 
     // file name
@@ -844,6 +846,8 @@ bool eval(string gt_dir, string result_dir, Mail* mail){
       return false;
     }
   }
+  // END OF LOOP
+  // --------------------------------------------------------
   mail->msg("  done.");
 
   // holds pointers for result files
@@ -892,6 +896,138 @@ bool eval(string gt_dir, string result_dir, Mail* mail){
       saveAndPlotPlots(plot_dir, CLASS_NAMES[c] + "_detection_ground", CLASS_NAMES[c], precision, 0);
     }
   }
+
+  // eval 3D bounding boxes
+  cout << "Eval 3D bounding boxes" << endl;
+  for (int c = 0; c < NUM_CLASS; c++) {
+    CLASSES cls = (CLASSES)c;
+    if (eval_3d[c]) {
+      fp_det = fopen((result_dir + "/stats_" + CLASS_NAMES[c] + "_detection_3d.txt").c_str(), "w");
+      vector<double> precision[3], aos[3];
+      if(   !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, box3DOverlap, precision[0], aos[0], EASY, BOX3D)
+         || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, box3DOverlap, precision[1], aos[1], MODERATE, BOX3D)
+         || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, box3DOverlap, precision[2], aos[2], HARD, BOX3D)) {
+        mail->msg("%s evaluation failed.", CLASS_NAMES[c].c_str());
+        return false;
+      }
+      fclose(fp_det);
+      saveAndPlotPlots(plot_dir, CLASS_NAMES[c] + "_detection_3d", CLASS_NAMES[c], precision, 0);
+    }
+  }
+
+  // success
+  return true;
+}
+
+
+bool eval2(vector< vector<tGroundtruth> > groundtruth,
+           vector< vector<tDetection> >   detections,
+           string result_dir){
+
+  // set some global parameters
+  initGlobals();
+
+  // ground truth and result directories
+  // string gt_dir         = "data/object/label_2";
+  // string result_dir     = "results/" + result_sha;
+  string plot_dir       = result_dir + "/plot";
+
+  // create output directories
+  system(("mkdir " + plot_dir).c_str());
+
+  // hold detections and ground truth in memory
+  // vector< vector<tGroundtruth> > groundtruth;
+  // vector< vector<tDetection> >   detections;
+
+  // holds wether orientation similarity shall be computed (might be set to false while loading detections)
+  // and which labels where provided by this submission
+  bool compute_aos=true;
+  vector<bool> eval_image(NUM_CLASS, false);
+  vector<bool> eval_ground(NUM_CLASS, false);
+  vector<bool> eval_3d(NUM_CLASS, false);
+
+  // // for all images read groundtruth and detections
+  // mail->msg("Loading detections...");
+  // // std::vector<int32_t> indices = getEvalIndices(result_dir + "/data/");
+  // std::vector<int32_t> indices = getEvalIndices(result_dir);
+  // printf("number of files for evaluation: %d\n", (int)indices.size());
+
+  // // LOOP BELOW FOR LOADING IN THE GROUND TRUTHS AND DETECTIONS
+  // // -----------------------------------------------------------
+  // for (int32_t i=0; i<indices.size(); i++) {
+
+  //   // file name
+  //   char file_name[256];
+  //   sprintf(file_name,"%06d.txt",indices.at(i));
+
+  //   // read ground truth and result poses
+  //   bool gt_success,det_success;
+  //   vector<tGroundtruth> gt   = loadGroundtruth(gt_dir + "/" + file_name,gt_success);
+  //   vector<tDetection>   det  = loadDetections(result_dir +"/" + file_name,
+  //           compute_aos, eval_image, eval_ground, eval_3d, det_success);
+  //   groundtruth.push_back(gt);
+  //   detections.push_back(det);
+
+  //   // check for errors
+  //   if (!gt_success) {
+  //     mail->msg("ERROR: Couldn't read: %s of ground truth. Please write me an email!", file_name);
+  //     return false;
+  //   }
+  //   if (!det_success) {
+  //     mail->msg("ERROR: Couldn't read: %s", file_name);
+  //     return false;
+  //   }
+  // }
+  // // END OF LOOP
+  // // --------------------------------------------------------
+  // mail->msg("  done.");
+
+  // holds pointers for result files
+  FILE *fp_det=0, *fp_ori=0;
+
+  // eval image 2D bounding boxes
+  for (int c = 0; c < NUM_CLASS; c++) {
+    CLASSES cls = (CLASSES)c;
+    if (eval_image[c]) {
+      fp_det = fopen((result_dir + "/stats_" + CLASS_NAMES[c] + "_detection.txt").c_str(), "w");
+      if(compute_aos)
+        fp_ori = fopen((result_dir + "/stats_" + CLASS_NAMES[c] + "_orientation.txt").c_str(),"w");
+      vector<double> precision[3], aos[3];
+      if(   !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, imageBoxOverlap, precision[0], aos[0], EASY, IMAGE)
+         || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, imageBoxOverlap, precision[1], aos[1], MODERATE, IMAGE)
+         || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, imageBoxOverlap, precision[2], aos[2], HARD, IMAGE)) {
+        mail->msg("%s evaluation failed.", CLASS_NAMES[c].c_str());
+        return false;
+      }
+      fclose(fp_det);
+      saveAndPlotPlots(plot_dir, CLASS_NAMES[c] + "_detection", CLASS_NAMES[c], precision, 0);
+      if(compute_aos){
+        saveAndPlotPlots(plot_dir, CLASS_NAMES[c] + "_orientation", CLASS_NAMES[c], aos, 1);
+        fclose(fp_ori);
+      }
+    }
+  }
+
+  // don't evaluate AOS for birdview boxes and 3D boxes
+  compute_aos = false;
+
+  // // eval bird's eye view bounding boxes
+  
+  // for (int c = 0; c < NUM_CLASS; c++) {
+  //   CLASSES cls = (CLASSES)c;
+  //   if (eval_ground[c]) {
+  //     fp_det = fopen((result_dir + "/stats_" + CLASS_NAMES[c] + "_detection_ground.txt").c_str(), "w");
+  //     vector<double> precision[3], aos[3];
+  //     if(   !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, groundBoxOverlap, precision[0], aos[0], EASY, GROUND)
+  //        || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, groundBoxOverlap, precision[1], aos[1], MODERATE, GROUND)
+  //        || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, groundBoxOverlap, precision[2], aos[2], HARD, GROUND)) {
+  //       mail->msg("%s evaluation failed.", CLASS_NAMES[c].c_str());
+  //       return false;
+  //     }
+  //     fclose(fp_det);
+  //     saveAndPlotPlots(plot_dir, CLASS_NAMES[c] + "_detection_ground", CLASS_NAMES[c], precision, 0);
+  //   }
+  // }
 
   // eval 3D bounding boxes
   cout << "Eval 3D bounding boxes" << endl;
