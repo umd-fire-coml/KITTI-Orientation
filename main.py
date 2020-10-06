@@ -8,7 +8,7 @@ from data_processing import data_gen
 import sys
 import argparse
 from tqdm import tqdm
-
+from Xception import Xception_model
 #####
 #Training setting
 BIN, OVERLAP = 2, 0.1
@@ -41,6 +41,9 @@ def multibin_orientation_loss(y_true, y_pred):
 
     return tf.reduce_mean(loss)
 
+
+
+
 def build_model(orientation_type):
     #### Placeholder
     # list of input images for each obj
@@ -53,29 +56,16 @@ def build_model(orientation_type):
     c_label = tf.placeholder(tf.float32, shape = [None, BIN])
     
     #####
-    #Build Graph
-    with slim.arg_scope([slim.conv2d, slim.fully_connected],
-                      activation_fn=tf.nn.relu,
-                      weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
-                      weights_regularizer=slim.l2_regularizer(0.0005)):
-    # VGG backbone
-    # TODO convert to xception backbone written in keras
-    net = slim.repeat(inputs, 2, slim.conv2d, 64, [3, 3], scope='conv1')
-    net = slim.max_pool2d(net, [2, 2], scope='pool1')
-    net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
-    net = slim.max_pool2d(net, [2, 2], scope='pool2')
-    net = slim.repeat(net, 3, slim.conv2d, 256, [3, 3], scope='conv3')
-    net = slim.max_pool2d(net, [2, 2], scope='pool3')
-    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
-    net = slim.max_pool2d(net, [2, 2], scope='pool4')
-    net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
-    net = slim.max_pool2d(net, [2, 2], scope='pool5')
-    conv5 = tf.contrib.layers.flatten(net)
-
-
+    # #Build Graph
+    # with slim.arg_scope([slim.conv2d, slim.fully_connected],
+    #                   activation_fn=tf.nn.relu,
+    #                   weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
+    #                   weights_regularizer=slim.l2_regularizer(0.0005)):
+    # Xception Backbone
+    Xception_layer = Xception_model(inputs, True, "avg", num_classes)
     
     if orientation_type == 'multibin':
-        orientation = slim.fully_connected(conv5, 256, activation_fn=None, scope='fc7_o')
+        orientation = slim.fully_connected(Xception_layer, 256, activation_fn=None, scope='fc7_o')
         orientation = LeakyReLU(orientation, 0.1)
         orientation = slim.dropout(orientation, 0.5, scope='dropout7_o')
 
@@ -84,7 +74,7 @@ def build_model(orientation_type):
         orientation = tf.nn.l2_normalize(orientation, dim=2)
         loss_o = multibin_orientation_loss(o_label, orientation)
         
-        confidence = slim.fully_connected(conv5, 256, activation_fn=None, scope='fc7_c')
+        confidence = slim.fully_connected(Xception_layer, 256, activation_fn=None, scope='fc7_c')
         confidence = LeakyReLU(confidence, 0.1)
         confidence = slim.dropout(confidence, 0.5, scope='dropout7_c')
         confidence = slim.fully_connected(confidence, BIN, activation_fn=None, scope='fc8_c')
@@ -99,14 +89,20 @@ def build_model(orientation_type):
         return orientation, confidence, total_loss, optimizer
         
     if orientation_type == 'tricosine':
+        # l2 loss
         orientation = slim.fully_connected(orientation, TRICOSINE_BINS, activation_fn=None, scope='fc8_o')
         orientation = tf.nn.l2_normalize(orientation, dim=2)
         loss_o = multibin_orientation_loss(o_label, orientation)
+    if orientation_type == 'tricosine':
+        loss = tf.keras.losses.mean_squared_error(y_true=, y_pred=)
     if orientation_type == 'alpha':
-        # TODO
+        loss = tf.keras.losses.mean_squared_error(y_true=, y_pred=)
     if orientation_type == 'rotation_y':
-        # TODO
-
+        loss = tf.keras.losses.mean_squared_error(y_true=, y_pred=)
+    if orientation_type == 'alpha_sector':
+        loss = tf.keras.losses.categorical_crossentropy(y_true=, y_pred=)
+    if orientation_type == 'rotation_y_sector':
+        loss = tf.keras.losses.categorical_crossentropy(y_true=, y_pred=)
         
 def train(image_dir, box2d_loc, label_dir, orientation_type):
 
@@ -123,12 +119,15 @@ def train(image_dir, box2d_loc, label_dir, orientation_type):
         dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
         
     if orientation_type == 'tricosine':
-        # TODO
+
     if orientation_type == 'alpha':
-        # TODO
+
     if orientation_type == 'rotation_y':
-        # TODO
-    
+
+    if orientation_type = 'alpha_sector':
+
+    if orientation_type = 'rotation_y_sector':
+
 
     ### GPU config
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
@@ -169,9 +168,9 @@ def train(image_dir, box2d_loc, label_dir, orientation_type):
             saver.save(sess,save_path+"model", global_step = epoch+1)
 
         # Print some information
-        print "Epoch:", epoch+1, " done. Loss:", np.mean(epoch_loss)
+        print ("Epoch:", epoch+1, " done. Loss:", np.mean(epoch_loss))
         tStop_epoch = time.time()
-        print "Epoch Time Cost:", round(tStop_epoch - tStart_epoch,2), "s"
+        print ("Epoch Time Cost:", round(tStop_epoch - tStart_epoch,2), "s")
         sys.stdout.flush()
 
         # TODO save train and validation results of every epoch to a dataframe file
