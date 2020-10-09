@@ -224,4 +224,5 @@ def Xception_model(img_input, pooling=None):
     # elif weights is not None:
     #     model.load_weights(weights)
 
+    x = layers.Flatten()(x)
     return x
