@@ -1,6 +1,6 @@
 import tensorflow as tf
-from tf.keras import layers
-
+from tensorflow.keras import layers
+import tensorflow.math as K
 
 NUM_SECTORS = 2**3 # TODO import from ?
 
@@ -24,16 +24,17 @@ def add_output_layers(orientation_output_type, backbone_layer):
         c_layer_pre = first_output_stage(backbone_layer, [BIN, 1])
         c_layer = layers.Softmax(c_layer_pre)
         return o_layer, c_layer_pre, c_layer
+    
+    elif (orientation_output_type == 'rot_y_sectors' or orientation_output_type == 'alpha_sectors'): 
+        output_shape = [NUM_SECTORS, 1]
+        o_layer = first_output_stage(backbone_layer, output_shape)
+        o_layer = layers.Softmax(o_layer)
 
     # If not multibin -> output first stage with different shapes
-    output_shape = [NUM_SECTORS, 1] # orientation_output_type == 'rot_y_sectors' or orientation_output_type == 'alpha_sectors'
-    if orientation_output_type == 'alpha': output_shape = [1, 1]
-    if orientation_output_type == 'rot_y': output_shape = [1, 1]
-    if orientation_output_type == 'tricosine': output_shape = [3, 1]
+    elif orientation_output_type == 'alpha': output_shape = [1, 1]
+    elif orientation_output_type == 'rot_y': output_shape = [1, 1]
+    elif orientation_output_type == 'tricosine': output_shape = [3, 1]
+    else raise NameError("Invalid orientation_output_type")
     
     o_layer = first_output_stage(backbone_layer, output_shape)
-    
-    if (orientation_output_type == 'rot_y_sectors' or orientation_output_type == 'alpha_sectors'): 
-        o_layer = layers.Softmax(o_layer)
-    
     return o_layer
