@@ -11,16 +11,17 @@ def first_output_stage(backbone_layer, out_shape):
     return y
 
 def add_output_layers(orientation_output_type, backbone_layer):
-    
+    backbone_layer = layers.Flatten(backbone_layer)
+
     # keras replicated implementation of multibin
     if orientation_output_type == 'multibin':
         o_layer = first_output_stage(backbone_layer, [BIN, 2])
-        o_layer = layers.Dense(BIN*2)(o_layer)
         o_layer = layers.Reshape([BIN, 2])(o_layer)
         o_layer = Lambda(lambda a: K.l2_normalize(a,axis=2))(o_layer) # l2_normalization
 
-        c_layer = first_output_stage(backbone_layer, [BIN, 1])
-        return o_layer, c_layer
+        c_layer_pre = first_output_stage(backbone_layer, [BIN, 1])
+        c_layer = layers.Softmax(c_layer_pre)
+        return o_layer, c_layer_pre, c_layer
 
     # If not multibin -> output first stage with different shapes
     output_shape = [0,0]
