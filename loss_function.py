@@ -6,3 +6,6 @@ def loss(loss_type,y_true, y_pred):
         return tf.keras.losses.categorical_crossentropy(y_true, y_pred)
     else:
         raise Exception("Incorrect loss function type")
+
+def tricosine_loss(y_true, y_pred):
+    return  tf.keras.losses.mean_squared_error(y_true, y_pred)
