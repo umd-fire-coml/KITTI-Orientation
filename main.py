@@ -43,7 +43,6 @@ def multibin_orientation_loss(y_true, y_pred):
 
 
 
-
 def build_model(orientation_type):
     #### Placeholder
     # list of input images for each obj
@@ -114,9 +113,11 @@ def train(image_dir, box2d_loc, label_dir, orientation_type):
     train_gen = data_gen(image_dir, all_objs, BATCH_SIZE)
     train_num = int(np.ceil(all_exams/BATCH_SIZE))
     
+    orientation, confidence, loss, optimizer = build_model()
+    
     ### buile graph
-    if orientation_type == 'multibin':
-        dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
+    # if orientation_type == 'multibin':
+    #     dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
         
     if orientation_type == 'tricosine':
 
@@ -178,7 +179,8 @@ def train(image_dir, box2d_loc, label_dir, orientation_type):
 def test(model, image_dir, box2d_loc, box3d_loc):
 
     ### buile graph
-    dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
+    orientation, confidence, loss, optimizer = build_model()
+    # dimension, orientation, confidence, loss, optimizer, loss_d, loss_o, loss_c = build_model()
 
     ### GPU config 
     tfconfig = tf.ConfigProto(allow_soft_placement=True)

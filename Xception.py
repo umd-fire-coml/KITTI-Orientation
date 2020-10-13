@@ -4,7 +4,7 @@ import tensorflow.keras.backend as backend
 
 # Reference
 """
-This is a modified version of 
+This is a modified version of
 - [Xception: Deep Learning with Depthwise Separable Convolutions](
     https://arxiv.org/abs/1610.02357) (CVPR 2017)
 """
@@ -48,7 +48,7 @@ weights: one of `None` (random initialization),
       'imagenet' (pre-training on ImageNet),
       or the path to the weights file to be loaded.
 """
-def Xception_model(img_input, include_top, pooling, classes):
+def Xception_model(img_input, pooling=None):
 
     channel_axis = 1 if backend.image_data_format() == 'channels_first' else -1 #???
 
@@ -197,14 +197,11 @@ def Xception_model(img_input, include_top, pooling, classes):
     x = layers.BatchNormalization(axis=channel_axis, name='block14_sepconv2_bn')(x)
     x = layers.Activation('relu', name='block14_sepconv2_act')(x)
 
-    if include_top:
-        x = layers.GlobalAveragePooling2D(name='avg_pool')(x)
-        x = layers.Dense(classes, activation='softmax', name='predictions')(x)
-    else:
-        if pooling == 'avg':
-            x = layers.GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
-            x = layers.GlobalMaxPooling2D()(x)
+    if pooling == 'avg':
+        x = layers.GlobalAveragePooling2D()(x)
+    elif pooling == 'max':
+        x = layers.GlobalMaxPooling2D()(x)
 
 
+    x = layers.Flatten()(x)
     return x
