@@ -202,6 +202,4 @@ def Xception_model(img_input, pooling=None):
     elif pooling == 'max':
         x = layers.GlobalMaxPooling2D()(x)
 
-
-    x = layers.Flatten()(x)
     return x
