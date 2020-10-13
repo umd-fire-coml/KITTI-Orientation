@@ -1,17 +1,19 @@
-#! /bin/python3
+#! python3
 import os
 import math
 import numpy as np
 import cv2
 import copy
-
+from tensorflow.keras.utils import Sequence
+import tensorflow as tf
+import warnings
 #import tensorflow as tf
 #####
 # Training setting
 BIN, OVERLAP = 2, 0.1
 NORM_H, NORM_W = 224, 224
 VEHICLES = ['Car', 'Truck', 'Van', 'Tram', 'Pedestrian', 'Cyclist']
-
+NUM_CATS = 4
 
 # make sure that math.tau isn't causint issues
 def alpha_rad_to_tricoine(alpha_rad, sectors=3):
@@ -77,6 +79,10 @@ def tricosine_to_alpha_rad(sector_affinity,sectors=3):
     mean_alpha_rads = np.arctan2(sum_sin_alpha_rads, sum_cos_alpha_rads)
     return mean_alpha_rads
 
+def angle2cat(angle:int, n:int = 4)->float:
+    if angle<0:
+        angle += np.tau
+    return int(angle/(np.tau/n))
 
 def compute_anchors(angle):
     # angle is the new_alpha angle between 0 and 2pi
@@ -100,9 +106,8 @@ def compute_anchors(angle):
         anchors.append([r_index % BIN, angle - r_index*wedge])
 
     return anchors
-
-
-def parse_annotation(label_dir, image_dir):
+# this creates the full dict from the train val directories
+def parse_annotation(label_dir, image_dir,mode = 'train'):
     all_objs = []
     dims_avg = {key: np.array([0, 0, 0]) for key in VEHICLES}
     dims_cnt = {key: 0 for key in VEHICLES}
@@ -176,9 +181,9 @@ def parse_annotation(label_dir, image_dir):
         obj['conf'] = confidence
 
         # add our implementation here
-        obj['tri_sector_affinity'] = alpha_deg_to_sector_affinity(
+        obj['tri_sector_affinity'] =  alpha_rad_to_tricoine(
             obj['new_alpha'])
-
+        obj['alpha_cat'] = angle2cat(obj['new_alpha'])
         # Get orientation and confidence values for flip
         orientation = np.zeros((BIN, 2))
         confidence = np.zeros(BIN)
@@ -194,16 +199,14 @@ def parse_annotation(label_dir, image_dir):
 
         obj['orient_flipped'] = orientation
         obj['conf_flipped'] = confidence
-
         # add our implementation here
-        obj['tri_sector_affinity_flipped'] = sector_affinity_to_alpha_deg(
+        obj['tri_sector_affinity_flipped'] = alpha_rad_to_tricoine(
             2.*np.pi - obj - obj['new_alpha'])
 
     return all_objs
 
 # get the bounding box,  values for the instance
-
-
+# this automatically does flips
 def prepare_input_and_output(image_dir, train_inst):
     # Prepare image patch
     xmin = train_inst['xmin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
@@ -215,16 +218,6 @@ def prepare_input_and_output(image_dir, train_inst):
     # crop the image using the obj bounding box, deepcopy to prevent memory sharing
     img = copy.deepcopy(img[ymin:ymax+1, xmin:xmax+1]).astype(np.float32)
 
-    # re-color the image
-    #img += np.random.randint(-2, 3, img.shape).astype('float32')
-    #t  = [np.random.uniform()]
-    #t += [np.random.uniform()]
-    #t += [np.random.uniform()]
-    #t = np.array(t)
-
-    #img = img * (1 + t)
-    #img = img / (255. * 2.)
-
     # flip the image by random chance
     flip = np.random.binomial(1, .5)
     # flip image horizonatally
@@ -235,7 +228,8 @@ def prepare_input_and_output(image_dir, train_inst):
     img = cv2.resize(img, (NORM_H, NORM_W))
     # zero center the image values around these (avg?) RGB values
     img = img - np.array([[[103.939, 116.779, 123.68]]])
-    #img = img[:,:,::-1]
+    # convert to rgb
+    img = img[:,:,::-1]
 
     # if the image crop is flipped also flip the orientation values
     if flip > 0.5:
@@ -244,56 +238,82 @@ def prepare_input_and_output(image_dir, train_inst):
         return img, train_inst['dims'], train_inst['orient'], train_inst['conf']
 
 
-def data_gen(image_dir, all_objs, batch_size):
-    num_obj = len(all_objs)
+class KittiGenerator(Sequence):
 
-    keys = range(num_obj)
-    np.random.shuffle(keys)
+    '''Creates A KittiGenerator Sequence
+    Args:
+        label_dir (str) : path to the directory with labels
+        image_dir (str) : path to the image directory
+        mode (str): tells whether to be in train or test mode
+        batch_size (int) : tells batchsize to use
+    '''
+    def __init__(self,label_dir:str,image_dir:str,mode = "train",batch_size = 8,**kwargs):
+        self.label_dir = label_dir
+        self.image_dir = image_dir
+        self.all_objs = parse_annotation(label_dir,image_dir,mode)
+        self.mode = mode
+        self.batch_size = batch_size
+        if mode!='test':
+            warnings.warn("testing mode has not been inplemented yet")
+        if mode!='val':
+            warnings.warn("validation mode has not been inplemented yet")
+        self._clen = len(self)
+        self._keys = range(self._clen)
+        np.random.shuffle(self._keys)
+        self.alpha_m = False
+        self.epochs = 0
+        self._idx = 0
+        if 'alpha' in kwargs and kwargs['alpha']:
+            warnings.warn("alpha mode has not been inplemented yet")
+            self.alpha_m = True
 
-    # start index
-    l_bound = 0
-    # end index
-    r_bound = batch_size if batch_size < num_obj else num_obj
+    def __len__(self)->int:
+        return len(self.all_objs)
 
-    while True:
-        # if batch accumulated
-        if l_bound == r_bound:
-            # reset l_bound and r_bound
-            l_bound = 0
-            r_bound = batch_size if batch_size < num_obj else num_obj
-            # shuffle obj idxs
-            np.random.shuffle(keys)
-
-        currt_inst = 0
-        # set placeholder values
+    def __getitem__(self,idx):
+        l_bound = idx
+        r_bound = self.batch_size+idx 
+        r_bound = r_bound if r_bound<self._clen else self._clen
         x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))  # batch of images
         d_batch = np.zeros((r_bound - l_bound, 3))  # batch of dimensions
         # batch of cos,sin values for each bin
         o_batch = np.zeros((r_bound - l_bound, BIN, 2))
         # batch of confs for each bin
         c_batch = np.zeros((r_bound - l_bound, BIN))
-
-        for key in keys[l_bound:r_bound]:
-            # augment input image and fix object's orientation and confidence
+        acat_batch = np.zeros((r_bound-l_bound,NUM_CATS))
+        currt_inst = 0
+        for key in self._keys[l_bound:r_bound]:
             image, dimension, orientation, confidence = prepare_input_and_output(
-                image_dir, all_objs[key])
-
-            # plt.figure(figsize=(5,5))
-            #plt.imshow(image/255./2.); plt.show()
-            #print dimension
-            #print orientation
-            #print confidence
-
+                self.image_dir, self.all_objs[key])
             x_batch[currt_inst, :] = image
             d_batch[currt_inst, :] = dimension
             o_batch[currt_inst, :] = orientation
             c_batch[currt_inst, :] = confidence
-
+            if self.alpha_m:
+                acat_batch[currt_inst,angle2cat(self.all_objs[key]['new_alpha'])] = 1
             currt_inst += 1
+        if self.alpha_m:
+            raise Exception("ALPHA MODE UNIMPLEMENTED")
+            #return x_batch, [d_batch, o_batch, c_batch,acat_batch]
+        return x_batch, [d_batch, o_batch, c_batch]
 
-        yield x_batch, [d_batch, o_batch, c_batch]
-
-        l_bound = r_bound
-        r_bound = r_bound + batch_size
-        if r_bound > num_obj:
-            r_bound = num_obj
+    def on_epoch_end(self):
+        print("initializing next epoch")
+        np.random.shuffle(self._keys)
+        self.epochs+=1
+        self._idx = 0
+    
+    def __str__(self):
+        return "KittiDatagenerator:<size %d,image_dir:%s,label_dir:%s,epoch:%d>"%(len(self),self.image_dir,self.label_dir,self.epochs)
+    
+    def __next__(self):
+        result = self.__getitem__(self._idx)
+        self._idx += len(result)
+        if self._idx>=len(self):
+            self.on_epoch_end()
+        return result
+    def get_tf_handle(self)->tf.data.Dataset:
+        if self.alpha_m:
+            raise Exception("alpha mode has not been implemented")
+        output_shape = {tf.TensorShape([(NORM_H,NORM_W)]),tf.TensorShape([(3,),(BIN,2),(BIN,)])} 
+        return tf.data.Dataset.from_generator(generator=self,output_types=(tf.float32),output_shapes=output_shape)
