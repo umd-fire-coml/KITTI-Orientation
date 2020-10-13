@@ -5,6 +5,7 @@ import numpy as np
 import cv2
 import copy
 from tensorflow.keras.utils import Sequence
+import tensorflow as tf
 import warnings
 #import tensorflow as tf
 #####
@@ -252,7 +253,7 @@ class KittiGenerator(Sequence):
         self.all_objs = parse_annotation(label_dir,image_dir,mode)
         self.mode = mode
         self.batch_size = batch_size
-        if mode!='train':
+        if mode!='test':
             warnings.warn("testing mode has not been inplemented yet")
         if mode!='val':
             warnings.warn("validation mode has not been inplemented yet")
@@ -261,6 +262,7 @@ class KittiGenerator(Sequence):
         np.random.shuffle(self._keys)
         self.alpha_m = False
         self.epochs = 0
+        self._idx = 0
         if 'alpha' in kwargs and kwargs['alpha']:
             warnings.warn("alpha mode has not been inplemented yet")
             self.alpha_m = True
@@ -292,13 +294,26 @@ class KittiGenerator(Sequence):
             currt_inst += 1
         if self.alpha_m:
             raise Exception("ALPHA MODE UNIMPLEMENTED")
-        if self.alpha_m:
-            return x_batch, [d_batch, o_batch, c_batch,acat_batch]
+            #return x_batch, [d_batch, o_batch, c_batch,acat_batch]
         return x_batch, [d_batch, o_batch, c_batch]
 
     def on_epoch_end(self):
+        print("initializing next epoch")
         np.random.shuffle(self._keys)
         self.epochs+=1
+        self._idx = 0
     
     def __str__(self):
         return "KittiDatagenerator:<size %d,image_dir:%s,label_dir:%s,epoch:%d>"%(len(self),self.image_dir,self.label_dir,self.epochs)
+    
+    def __next__(self):
+        result = self.__getitem__(self._idx)
+        self._idx += len(result)
+        if self._idx>=len(self):
+            self.on_epoch_end()
+        return result
+    def get_tf_handle(self)->tf.data.Dataset:
+        if self.alpha_m:
+            raise Exception("alpha mode has not been implemented")
+        output_shape = {tf.TensorShape([(NORM_H,NORM_W)]),tf.TensorShape([(3,),(BIN,2),(BIN,)])} 
+        return tf.data.Dataset.from_generator(generator=self,output_types=(tf.float32),output_shapes=output_shape)
