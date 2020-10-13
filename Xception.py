@@ -206,26 +206,5 @@ def Xception_model(img_input, include_top, pooling, classes):
         elif pooling == 'max':
             x = layers.GlobalMaxPooling2D()(x)
 
-    # # Create model.
-    # model = tf.keras.models.Model(img_input, x, name='xception')
-    # # Load weights.
-    # if weights == 'imagenet':
-    #     if include_top:
-    #         weights_path = tf.keras.utils.get_file(
-    #             'xception_weights_tf_dim_ordering_tf_kernels.h5',
-    #             TF_WEIGHTS_PATH,
-    #             cache_subdir='models',
-    #             file_hash='0a58e3b7378bc2990ea3b43d5981f1f6')
-    #     else:
-    #         weights_path = tf.keras.utils.get_file(
-    #             'xception_weights_tf_dim_ordering_tf_kernels_notop.h5',
-    #             TF_WEIGHTS_PATH_NO_TOP,
-    #             cache_subdir='models',
-    #             file_hash='b0042744bf5b25fce3cb969f33bebb97')
-    #     model.load_weights(weights_path)
-    #     if backend.backend() == 'theano':
-    #         tf.keras.utils.convert_all_kernels_in_model(model)
-    # elif weights is not None:
-    #     model.load_weights(weights)
 
     return x
