@@ -3,7 +3,7 @@ import time
 from tqdm import tqdm
 import logging
 
-logging.basicConfig(filename = "outputs.log",encoding = "utf-8",format
+logging.basicConfig(filename = "outputs.log",format
                     = '%(asctime)s %(message)s',level
                     = logging.DEBUG)
 
@@ -35,5 +35,5 @@ for it in tqdm(range(8192)):
     ele = dataset.batch(batch_size,drop_remainder = True)
     logging.debug("%s",ele)
 t2 = time.time()
-~print("Dataset takes %d time to complete"%(t2-t1))
+print("Dataset takes %d time to complete"%(t2-t1))
 logging.info("dataset took %d complete"%(t2-t1))
