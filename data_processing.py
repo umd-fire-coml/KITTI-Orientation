@@ -1,4 +1,4 @@
-#! python3
+#! /bin/python
 import os
 import math
 import numpy as np
@@ -23,18 +23,18 @@ def alpha_rad_to_tricoine(alpha_rad, sectors=3):
     center_sector_id = alpha_rad // SECTOR_WIDTH
     center_sector_offset = (SECTOR_WIDTH / 2) - (alpha_rad % SECTOR_WIDTH)
     center_sector_affinity = math.cos(center_sector_offset)
-    sector_affinity[center_sector_id] = center_sector_affinity
+    sector_affinity[int(center_sector_id)] = center_sector_affinity
     # calculate the left sector affinity
     l_sector_id = (center_sector_id - 1) % sectors  # if -1 then we get 2
     l_sector_offset = (alpha_rad % SECTOR_WIDTH) + (SECTOR_WIDTH / 2)
     l_sector_affinity = math.cos(l_sector_offset)
-    sector_affinity[l_sector_id] = l_sector_affinity
+    sector_affinity[int(l_sector_id)] = l_sector_affinity
     # calculate the left sector affinity
     r_sector_id = (center_sector_id + 1) % sectors
     r_sector_offset = (SECTOR_WIDTH - (alpha_rad %
                                        SECTOR_WIDTH)) + (SECTOR_WIDTH / 2)
     r_sector_affinity = math.cos(r_sector_offset)
-    sector_affinity[r_sector_id] = r_sector_affinity
+    sector_affinity[int(r_sector_id)] = r_sector_affinity
     return sector_affinity
 
 
@@ -81,8 +81,8 @@ def tricosine_to_alpha_rad(sector_affinity, sectors=3):
 
 def angle2cat(angle:int, n:int = 4)->float:
     if angle<0:
-        angle += np.tau
-    return int(angle/(np.tau/n))
+        angle += math.tau
+    return int(angle/(math.tau/n))
 
 def compute_anchors(angle):
     # angle is the new_alpha angle between 0 and 2pi
@@ -201,13 +201,13 @@ def parse_annotation(label_dir, image_dir,mode = 'train'):
         obj['conf_flipped'] = confidence
         # add our implementation here
         obj['tri_sector_affinity_flipped'] = alpha_rad_to_tricoine(
-            2.*np.pi - obj - obj['new_alpha'])
+            2.*np.pi - obj['new_alpha'])
 
     return all_objs
 
 # get the bounding box,  values for the instance
 # this automatically does flips
-def prepare_input_and_output(image_dir, train_inst):
+def prepare_input_and_output(image_dir:str, train_inst):
     # Prepare image patch
     xmin = train_inst['xmin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     ymin = train_inst['ymin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
@@ -258,7 +258,7 @@ class KittiGenerator(Sequence):
         if mode!='val':
             warnings.warn("validation mode has not been inplemented yet")
         self._clen = len(self)
-        self._keys = range(self._clen)
+        self._keys = list(range(self._clen))
         np.random.shuffle(self._keys)
         self.alpha_m = False
         self.epochs = 0
@@ -295,7 +295,7 @@ class KittiGenerator(Sequence):
         if self.alpha_m:
             raise Exception("ALPHA MODE UNIMPLEMENTED")
             #return x_batch, [d_batch, o_batch, c_batch,acat_batch]
-        return x_batch, [d_batch, o_batch, c_batch]
+        return x_batch, d_batch, o_batch, c_batch
 
     def on_epoch_end(self):
         print("initializing next epoch")
@@ -315,5 +315,8 @@ class KittiGenerator(Sequence):
     def get_tf_handle(self)->tf.data.Dataset:
         if self.alpha_m:
             raise Exception("alpha mode has not been implemented")
-        output_shape = {tf.TensorShape([(NORM_H,NORM_W)]),tf.TensorShape([(3,),(BIN,2),(BIN,)])} 
-        return tf.data.Dataset.from_generator(generator=self,output_types=(tf.float32),output_shapes=output_shape)
+        output_shape = [tf.TensorShape([self.batch_size,NORM_H,NORM_W,3]),
+            [tf.TensorShape([self.batch_size,3]),
+                tf.TensorShape([self.batch_size,BIN,2]),
+                tf.TensorShape([self.batch_size,BIN])]] 
+        return tf.data.Dataset.from_generator(generator=lambda:next(self),output_types={(self.batch_size,NORM_H,NORM_W,3,tf.float32),(self.batch_size,3,tf.float32),(self.batch_size,BIN,2,tf.float32),(self.batch_size,BIN,tf.float32)})
