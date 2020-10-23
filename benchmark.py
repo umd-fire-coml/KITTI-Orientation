@@ -15,18 +15,14 @@ cache = 8
 logging.info("starting sequential method")
 t1 = time.time()
 seq = dp.KittiGenerator(path_to_labels,path_to_images)
-index = 0
-test_size = 1
-for it in tqdm(range(test_size)):
-    ele = seq.__getitem__(index)
-    length =len(ele)
-    logging.debug("%d: %d %s"%(it,len(ele),str(ele[0].shape)))
-    if length!=seq.batch_size:
-        idx = 0
-        continue
+test_size = 64
+for idx,ele in tqdm(enumerate(seq)):
+    logging.debug("%d: %d %s"%(idx,len(ele),str(ele[0].shape)))
+    if idx>test_size:
+        break
 t2 = time.time()
 logging.debug("sequence took %d to complete"%(t2-t1))
-
+'''
 logging.info("starting tf.dataset method")
 t1 = time.time()
 seq = dp.KittiGenerator(path_to_labels,path_to_images)
@@ -37,3 +33,4 @@ for it in tqdm(range(int(test_size))):
     print(list(dataset.as_numpy_iterator()))
 t2 = time.time()
 logging.debug("dataset took %d complete"%(t2-t1))
+'''

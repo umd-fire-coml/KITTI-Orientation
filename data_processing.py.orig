@@ -268,7 +268,7 @@ class KittiGenerator(Sequence):
             self.alpha_m = True
 
     def __len__(self)->int:
-        return len(self.all_objs)//self.batch_size
+        return len(self.all_objs)
 
     def __getitem__(self,idx):
         l_bound = idx
