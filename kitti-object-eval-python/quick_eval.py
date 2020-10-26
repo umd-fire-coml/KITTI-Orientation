@@ -1,5 +1,5 @@
 import kitti_common as kitti
-from eval import get_official_eval_result, get_coco_eval_result
+from eval import get_official_eval_result
 
 
 """
@@ -24,7 +24,7 @@ def quick_eval(gts,
 
     # HERE convert from model output to output needed for get_official_eval_result()
     gt_annos = gts
-    det_annos = dt_annos
+    dt_annos = dets
     current_class = curr_cls
 
     return get_official_eval_result(gt_annos, dt_annos, current_class)
@@ -32,4 +32,3 @@ def quick_eval(gts,
 
 
 
-    

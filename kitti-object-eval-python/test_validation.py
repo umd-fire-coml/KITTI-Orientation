@@ -1,4 +1,6 @@
 from quick_eval import quick_eval
+from kitti_common import get_label_anno
+import numpy as np
 
 gt_dir = "./sample_gt.txt"
 
@@ -28,38 +30,46 @@ with open(gt_dir) as f:
 """
 
 # for line in lines:
-line = lines[0]
-line = line.split(',')
+# line = lines[0]
+# line = line.split(',')
+# line = np.array(line,dtype=np.float32) # convert all values to float
 
-print(line)
+# print(line)
 
-gt_annot = {
+# gt_annot = {
 
-    'name':       line[0],
-    'truncated':  line[1],
-    'occluded':   line[2],
-    'alpha':      line[3],
-    'bbox':       line[4:8],
-    'dimensions': line[8:11],
-    'location':   line[11:14],
-    'rotation_y': line[14]
-}
+#     'name':       int(line[0]),
+#     'truncated':  line[1],
+#     'occluded':   int(line[2]),
+#     'alpha':      np.array([line[3]]), #????? why??
+#     'bbox':       line[4:8],
+#     'dimensions': line[8:11],
+#     'location':   line[11:14],
+#     'rotation_y': line[14]
+# }
+
+gt_annot = get_label_anno(gt_dir)
 
 det1_annot = {k:v for k,v in gt_annot.items()}
 det2_annot = {k:v for k,v in gt_annot.items()}
 det3_annot = {k:v for k,v in gt_annot.items()}
 
-det1_annot['dimensions'] *= 1.1
-det2_annot['dimensions'] *= 1.05
-det3_annot['dimensions'] *= 1.01
+det1_annot['dimensions'] *= 1.2  #[x*1.2 for x in det1_annot['dimensions']]
+det2_annot['dimensions'] *= 1.08  #[x*1.08 for x in det2_annot['dimensions']]
+det3_annot['dimensions'] *= 1.001 #[x*1.01 for x in det3_annot['dimensions']]
 
-dets = [det1_annot,
-        det2_annot,
-        det3_annot]
+# dets = [det1_annot,
+#         det2_annot,
+#         det3_annot]
         
-gts = [gt_annot,
-       gt_annot,
-       gt_annot]
+dets = det1_annot
+gts = gt_annot
 
-res = quick_eval(gts,dets,gt_annot['name'])
+# gts = [gt_annot,
+#        gt_annot,
+#        gt_annot]
+
+print(det1_annot['alpha'].shape[0])
+
+res = quick_eval(gts,dets,list(gt_annot['name']))
 print(res)

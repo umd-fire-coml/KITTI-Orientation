@@ -5,7 +5,8 @@ import numba
 import numpy as np
 from scipy.interpolate import interp1d
 
-from second.core.non_max_suppression.nms_gpu import rotate_iou_gpu_eval
+from rotate_iou import rotate_iou_gpu_eval
+# from second.core.non_max_suppression.nms_gpu import rotate_iou_gpu_eval
 
 
 def get_mAP(prec):
@@ -365,7 +366,7 @@ def fused_compute_statistics(overlaps,
 def calculate_iou_partly(gt_annos,
                          dt_annos,
                          metric,
-                         num_parts=50,
+                         num_parts=1,
                          z_axis=1,
                          z_center=1.0):
     """fast iou algorithm. this function can be used independently to
@@ -377,11 +378,15 @@ def calculate_iou_partly(gt_annos,
         num_parts: int. a parameter for fast calculate algorithm
         z_axis: height axis. kitti camera use 1, lidar use 2.
     """
+
+    print("GT:",gt_annos)
+
     assert len(gt_annos) == len(dt_annos)
     total_dt_num = np.stack([len(a["name"]) for a in dt_annos], 0)
     total_gt_num = np.stack([len(a["name"]) for a in gt_annos], 0)
     num_examples = len(gt_annos)
     split_parts = get_split_parts(num_examples, num_parts)
+    print("SPLIT",num_examples,num_parts,split_parts)
     parted_overlaps = []
     example_idx = 0
     bev_axes = list(range(3))
@@ -390,6 +395,8 @@ def calculate_iou_partly(gt_annos,
         gt_annos_part = gt_annos[example_idx:example_idx + num_part]
         dt_annos_part = dt_annos[example_idx:example_idx + num_part]
         if metric == 0:
+            # print("LINE 394", gt_annos_part)
+            # print()
             gt_boxes = np.concatenate([a["bbox"] for a in gt_annos_part], 0)
             dt_boxes = np.concatenate([a["bbox"] for a in dt_annos_part], 0)
             overlap_part = image_box_overlap(gt_boxes, dt_boxes)
