@@ -664,6 +664,7 @@ def do_eval_v3(gt_annos,
                dt_annos,
                current_classes,
                min_overlaps,
+               num_parts,
                compute_aos=False,
                difficultys=(0, 1, 2),
                z_axis=1,
@@ -681,7 +682,8 @@ def do_eval_v3(gt_annos,
             min_overlaps,
             compute_aos,
             z_axis=z_axis,
-            z_center=z_center)
+            z_center=z_center,
+            num_parts=num_parts)
         metrics[types[i]] = ret
     return metrics
 
@@ -769,6 +771,8 @@ def get_official_eval_result(gt_annos,
             if anno['alpha'][0] != -10:
                 compute_aos = True
             break
+
+    num_parts = 1
     metrics = do_eval_v3(
         gt_annos,
         dt_annos,
@@ -777,7 +781,8 @@ def get_official_eval_result(gt_annos,
         compute_aos,
         difficultys,
         z_axis=z_axis,
-        z_center=z_center)
+        z_center=z_center,
+        num_parts)
     for j, curcls in enumerate(current_classes):
         # mAP threshold array: [num_minoverlap, metric, class]
         # mAP result: [num_class, num_diff, num_minoverlap]

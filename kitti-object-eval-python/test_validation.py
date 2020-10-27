@@ -54,20 +54,17 @@ det1_annot = {k:v for k,v in gt_annot.items()}
 det2_annot = {k:v for k,v in gt_annot.items()}
 det3_annot = {k:v for k,v in gt_annot.items()}
 
-det1_annot['dimensions'] *= 1.2  #[x*1.2 for x in det1_annot['dimensions']]
+det1_annot['dimensions'] *= 1.2   #[x*1.2  for x in det1_annot['dimensions']]
 det2_annot['dimensions'] *= 1.08  #[x*1.08 for x in det2_annot['dimensions']]
 det3_annot['dimensions'] *= 1.001 #[x*1.01 for x in det3_annot['dimensions']]
 
-# dets = [det1_annot,
-#         det2_annot,
-#         det3_annot]
-        
-dets = det1_annot
-gts = gt_annot
+dets = [det1_annot,
+        det2_annot,
+        det3_annot]
 
-# gts = [gt_annot,
-#        gt_annot,
-#        gt_annot]
+gts = [gt_annot,
+       gt_annot,
+       gt_annot]
 
 print(det1_annot['alpha'].shape[0])
 
