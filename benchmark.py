@@ -1,4 +1,4 @@
-#! /usr/bin/env python3.7
+#!/usr/bin/env python
 ## rip server is 3.5 :(
 import data_processing as dp
 import time

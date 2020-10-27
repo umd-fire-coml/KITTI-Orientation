@@ -7,13 +7,16 @@ import copy
 from tensorflow.keras.utils import Sequence
 import tensorflow as tf
 import warnings
+from pathlib2 import Path
 #import tensorflow as tf
 #####
 # Training setting
 BIN, OVERLAP = 2, 0.1
 NORM_H, NORM_W = 224, 224
 VEHICLES = ['Car', 'Truck', 'Van', 'Tram', 'Pedestrian', 'Cyclist']
+ALL_OBJ =  ['Cyclist','Tram','Person_sitting','Truck','Pedestrian','Van','Car','Misc','DontCare']
 NUM_CATS = 4
+NUMPY_TYPE = np.float32
 
 # make sure that math.tau isn't causint issues
 def alpha_rad_to_tricoine(alpha_rad, sectors=3):
@@ -79,10 +82,13 @@ def tricosine_to_alpha_rad(sector_affinity, sectors=3):
     mean_alpha_rads = np.arctan2(sum_sin_alpha_rads, sum_cos_alpha_rads)
     return mean_alpha_rads
 
-def angle2cat(angle:int, n:int = 4)->float:
+def angle2cat(angle:int, n:int = 4):
     if angle<0:
         angle += math.tau
-    return int(angle/(math.tau/n))
+    idx = int(angle/(math.tau/n))
+    arr = np.zeros(n).astype(NUMPY_TYPE)
+    arr[idx] = 1.0
+    return arr
 
 def compute_anchors(angle):
     # angle is the new_alpha angle between 0 and 2pi
@@ -107,7 +113,7 @@ def compute_anchors(angle):
 
     return anchors
 # this creates the full dict from the train val directories
-def parse_annotation(label_dir, image_dir,mode = 'train'):
+def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num_rot_y_sectors=4):
     all_objs = []
     dims_avg = {key: np.array([0, 0, 0]) for key in VEHICLES}
     dims_cnt = {key: 0 for key in VEHICLES}
@@ -131,24 +137,27 @@ def parse_annotation(label_dir, image_dir,mode = 'train'):
                 # make new_alpha always <= 2pi, equivalent to if new_alpha > 2.*np.pi: new_alpha = new_alpha - 2.*np.pi
                 new_alpha = new_alpha - int(new_alpha/(2.*np.pi))*(2.*np.pi)
 
-                obj = {'name': line[0],  # class
-                       'image': image_file,
+                obj = {'class_name': line[0],  # class
+                        'class_id' : ALL_OBJ.index(line[0]),
+                       'image_path': Path(image_file),
                        'xmin': int(float(line[4])),
                        'ymin': int(float(line[5])),
                        'xmax': int(float(line[6])),
                        'ymax': int(float(line[7])),
                        'dims': np.array([float(number) for number in line[8:11]]),
-                       'new_alpha': new_alpha
+                       'new_alpha': new_alpha,
+                       'alpha':float(line[3]),
+                       'rot_y': float(line[14])
                        }
 
                 # calculate the moving average of each obj dims.
                 # accumulate the sum of each dims for each obj
                 # get the count of the obj, then times the current avg of dims, + current obj's dim
-                dims_avg[obj['name']] = dims_cnt[obj['name']] * \
-                    dims_avg[obj['name']] + obj['dims']
-                dims_cnt[obj['name']] += 1
+                dims_avg[obj['class_name']] = dims_cnt[obj['class_name']] * \
+                    dims_avg[obj['class_name']] + obj['dims']
+                dims_cnt[obj['class_name']] += 1
                 # get the new average
-                dims_avg[obj['name']] /= dims_cnt[obj['name']]
+                dims_avg[obj['class_name']] /= dims_cnt[obj['class_name']]
 
                 all_objs.append(obj)
     # I have now accumulated all objects into all_objs from kitti data in obj dict format
@@ -157,7 +166,7 @@ def parse_annotation(label_dir, image_dir,mode = 'train'):
     for obj in all_objs:
 
         # Get the dimensions offset from average (basically zero centering the values)
-        obj['dims'] = obj['dims'] - dims_avg[obj['name']]
+        obj['dims'] = obj['dims'] - dims_avg[obj['class_name']]
 
         # Get orientation and confidence values for no flip
         # set all values as zeros for each orientation (2x2 values) and conf  (2 values, each value represents the sector)
@@ -177,13 +186,14 @@ def parse_annotation(label_dir, image_dir,mode = 'train'):
         # if in both sectors, then each confidence is 1/2, this makes sure sum of confidence adds up to 1
         confidence = confidence / np.sum(confidence)
 
-        obj['orient'] = orientation
-        obj['conf'] = confidence
+        obj['multibin_orientation'] = orientation.astype(NUMPY_TYPE)
+        obj['multibin_confidence'] = confidence.astype(NUMPY_TYPE)
 
         # add our implementation here
-        obj['tri_sector_affinity'] =  alpha_rad_to_tricoine(
-            obj['new_alpha'])
-        obj['alpha_cat'] = angle2cat(obj['new_alpha'])
+        obj['tricosine'] =  alpha_rad_to_tricoine(
+            obj['new_alpha']).astype(NUMPY_TYPE)
+        obj['alpha_sector'] = angle2cat(obj['new_alpha'],num_alpha_sectors)
+        obj['rot_y_sector'] = angle2cat(obj['new_alpha'],num_rot_y_sectors)
         # Get orientation and confidence values for flip
         orientation = np.zeros((BIN, 2))
         confidence = np.zeros(BIN)
@@ -197,11 +207,60 @@ def parse_annotation(label_dir, image_dir,mode = 'train'):
 
         confidence = confidence / np.sum(confidence)
 
-        obj['orient_flipped'] = orientation
-        obj['conf_flipped'] = confidence
+        obj['multibin_orientation_flipped'] = orientation.astype(NUMPY_TYPE)
+        obj['multibin_confidence_flipped'] = confidence.astype(NUMPY_TYPE)
         # add our implementation here
-        obj['tri_sector_affinity_flipped'] = alpha_rad_to_tricoine(
-            2.*np.pi - obj['new_alpha'])
+        obj['tricosine_flipped'] = alpha_rad_to_tricoine(
+            2.*np.pi - obj['new_alpha']).astype(NUMPY_TYPE)
+        obj['alpha_sector_flipped'] = angle2cat(2.*np.pi -obj['new_alpha'],num_alpha_sectors)
+        obj['rot_y_sector_flipped'] = angle2cat(2.*np.pi -obj['new_alpha'],num_rot_y_sectors)
+        
+        
+
+    for obj in all_objs:
+        assert isinstance(obj['class_name'], str)  # str name of the class of the object
+
+        assert isinstance(obj['class_id'], int)  # int id of the class of the object
+
+        assert isinstance(obj['image_path'], Path)  # path to image of the object
+
+        assert isinstance(obj['xmin'], int)  # relative xmin position of the object bbox
+        assert obj['xmin'] >= 0.0 #and obj['xmin'] <= 1.0 this is the crop pixel values
+
+        assert isinstance(obj['ymin'], int)  # relative ymin position
+        assert obj['ymin'] >= 0.0 #and obj['ymin'] <= 1.0
+
+        assert isinstance(obj['xmax'], int)  # relative xmax position
+        assert obj['xmax'] >= 0.0 #and obj['xmax'] <= 1.0
+
+        assert isinstance(obj['ymax'], int)  # relative ymax position
+        assert obj['ymax'] >= 0.0 #and obj['ymax'] <= 1.0
+
+        assert isinstance(obj['alpha'], float)  # kitti orientation in alpha
+        assert obj['alpha'] >= -math.pi and obj['alpha'] <= math.pi
+
+        assert isinstance(obj['rot_y'], float)  # kitti orientation in rot_y
+        assert obj['rot_y'] >= -math.pi and obj['rot_y'] <= math.pi
+
+        assert isinstance(obj['tricosine'], np.ndarray)  # kitti orientation in tricosine
+        assert obj['tricosine'].shape == (3,)
+        assert obj['tricosine'].dtype == np.dtype('float32')
+
+        assert isinstance(obj['multibin_orientation'], np.ndarray)  # kitti orientation in multibin_orientation
+        assert obj['multibin_orientation'].shape == (2,2)
+        assert obj['multibin_orientation'].dtype == np.dtype('float32')
+
+        assert isinstance(obj['multibin_confidence'], np.ndarray)  # kitti orientation in multibin_confidence
+        assert obj['multibin_confidence'].shape == (2,)
+        assert obj['multibin_confidence'].dtype == np.dtype('float32')
+
+        assert isinstance(obj['alpha_sector'], np.ndarray)  # kitti orientation in alpha_sector
+        assert obj['alpha_sector'].shape == (num_alpha_sectors,)
+        assert obj['alpha_sector'].dtype == np.dtype('float32')
+
+        assert isinstance(obj['rot_y_sector'], np.ndarray)  # kitti orientation in rot_y_sector
+        assert obj['rot_y_sector'].shape == (num_rot_y_sectors,)
+        assert obj['rot_y_sector'].dtype == np.dtype('float32')
 
     return all_objs
 
@@ -213,7 +272,7 @@ def prepare_input_and_output(image_dir:str, train_inst):
     ymin = train_inst['ymin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     xmax = train_inst['xmax']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     ymax = train_inst['ymax']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
-    img = cv2.imread(image_dir + train_inst['image'])
+    img = cv2.imread(image_dir + str(train_inst['image_path']))
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     # crop the image using the obj bounding box, deepcopy to prevent memory sharing
     img = copy.deepcopy(img[ymin:ymax+1, xmin:xmax+1]).astype(np.float32)
@@ -233,9 +292,9 @@ def prepare_input_and_output(image_dir:str, train_inst):
 
     # if the image crop is flipped also flip the orientation values
     if flip > 0.5:
-        return img, train_inst['dims'], train_inst['orient_flipped'], train_inst['conf_flipped']
+        return img, train_inst['dims'], train_inst['multibin_orientation_flipped'], train_inst['multibin_confidence_flipped']
     else:
-        return img, train_inst['dims'], train_inst['orient'], train_inst['conf']
+        return img, train_inst['dims'], train_inst['multibin_orientation'], train_inst['multibin_confidence']
 
 
 class KittiGenerator(Sequence):
@@ -263,6 +322,7 @@ class KittiGenerator(Sequence):
         self.alpha_m = False
         self.epochs = 0
         self._idx = 0
+        self._args = kwargs
         if 'alpha' in kwargs and kwargs['alpha']:
             warnings.warn("alpha mode has not been inplemented yet")
             self.alpha_m = True
@@ -272,7 +332,7 @@ class KittiGenerator(Sequence):
 
     def __getitem__(self,idx):
         l_bound = idx
-        r_bound = self.batch_size+idx 
+        r_bound = self.batch_size+idx
         r_bound = r_bound if r_bound<self._clen else self._clen
         x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))  # batch of images
         d_batch = np.zeros((r_bound - l_bound, 3))  # batch of dimensions
@@ -302,10 +362,10 @@ class KittiGenerator(Sequence):
         np.random.shuffle(self._keys)
         self.epochs+=1
         self._idx = 0
-    
+
     def __str__(self):
         return "KittiDatagenerator:<size %d,image_dir:%s,label_dir:%s,epoch:%d>"%(len(self),self.image_dir,self.label_dir,self.epochs)
-    
+
     def __next__(self):
         result = self.__getitem__(self._idx)
         self._idx += len(result)
@@ -318,5 +378,5 @@ class KittiGenerator(Sequence):
         output_shape = [tf.TensorShape([self.batch_size,NORM_H,NORM_W,3]),
             [tf.TensorShape([self.batch_size,3]),
                 tf.TensorShape([self.batch_size,BIN,2]),
-                tf.TensorShape([self.batch_size,BIN])]] 
+                tf.TensorShape([self.batch_size,BIN])]]
         return tf.data.Dataset.from_generator(generator=lambda:next(self),output_types={(self.batch_size,NORM_H,NORM_W,3,tf.float32),(self.batch_size,3,tf.float32),(self.batch_size,BIN,2,tf.float32),(self.batch_size,BIN,tf.float32)})
