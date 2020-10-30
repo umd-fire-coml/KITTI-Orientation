@@ -265,6 +265,7 @@ def compute_statistics_jit(overlaps,
             thresh_idx += 1
             if compute_aos:
                 # delta.append(gt_alphas[i] - dt_alphas[det_idx])
+                # delta computes the difference in alpha 
                 delta[delta_idx] = gt_alphas[i] - dt_alphas[det_idx]
                 delta_idx += 1
 
@@ -293,6 +294,9 @@ def compute_statistics_jit(overlaps,
             tmp = np.zeros((fp + delta_idx, ))
             # tmp = [0] * fp
             for i in range(delta_idx):
+                # delta computes the difference in alpha 
+                # and then all deltas are cosined and add 1 to make everything positive (ranging 0 to 2)
+                # and then div by 2 to get a output ranging from 0 to 1
                 tmp[i + fp] = (1.0 + np.cos(delta[i])) / 2.0
                 # tmp.append((1.0 + np.cos(delta[i])) / 2.0)
             # assert len(tmp) == fp + tp
