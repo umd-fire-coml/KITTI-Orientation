@@ -4,3 +4,6 @@ channels:
 dependencies:
   - python=3.7
   - tensorflow
+  - pathlib2
+  - opencv
+  - tqdm

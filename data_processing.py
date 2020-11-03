@@ -347,7 +347,8 @@ class KittiGenerator(Sequence):
         mode (str): tells whether to be in train or test mode
         batch_size (int) : tells batchsize to use
     '''
-    def __init__(self,label_dir:str,image_dir:str,mode = "train",batch_size = 8,**kwargs):
+    # update to remove kwargs
+    def __init__(self,label_dir:str,image_dir:str, mode = "train", batch_size = 8, orientation_type = "multibin", **kwargs):
         self.label_dir = label_dir
         self.image_dir = image_dir
         self._alpha_sectors = 4 if 'alpha_sectors' not in kwargs else kwargs['alpha_sectors']
@@ -370,8 +371,9 @@ class KittiGenerator(Sequence):
         if 'alpha' in kwargs and kwargs['alpha']:
             warnings.warn("alpha mode has not been inplemented yet")
             self.alpha_m = True
+        # update name to orientation_type
         if 'style' in kwargs:
-            self.style = kwargs['style']
+            self.style = kwargs['orientation_type']
         else:
             self.style = 'multibin'
 
@@ -384,6 +386,26 @@ class KittiGenerator(Sequence):
         r_bound = r_bound if r_bound<self._clen else self._clen
         x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))  # batch of images
         currt_inst = 0
+        
+        # output specs
+        if self.orientation_type == "tricosine"
+            # return obj_img_batch, obj_dim_batch, obj_tricosine_batch
+        if self.orientation_type == "alpha"
+            # return obj_img_batch, obj_dim_batch, obj_alpha_batch
+        if self.orientation_type == "rot_y"
+            # return obj_img_batch, obj_dim_batch, obj_rot_y_batch
+        if self.orientation_type == "alpha_sec"
+            assert obj_alpha_sec_batch.shape() == (bs, num_alpha_sectors)
+            # return obj_img_batch, obj_dim_batch, obj_alpha_sec_batch
+        if self.orientation_type == "rot_y_sec"
+            assert obj_rot_y_sec_batch.shape() == (bs, num_rot_y_sectors)
+            # return obj_img_batch, obj_dim_batch, obj_rot_y_sec_batch
+        if self.orientation_type == "multibin"
+            assert obj_multibin_orientation_batch.shape() == (bs, 2, 2)
+            assert obj_multibin_conf_batch.shape() == (bs, 2, 1)
+            # return obj_img_batch, obj_dim_batch, obj_multibin_orientation_batch, obj_multibin_conf_batch
+
+        
         if self.style == 'quality_aware':
             va_batch = np.zeros((r_bound - l_bound, 1))
             cry_batch = np.zeros((r_bound - l_bound, self._alpha_sectors))
@@ -416,6 +438,9 @@ class KittiGenerator(Sequence):
             raise Exception("ALPHA MODE UNIMPLEMENTED")
             #return x_batch, [d_batch, o_batch, c_batch,acat_batch]
         return x_batch, [d_batch, o_batch, c_batch]
+    
+    
+    
 
     def on_epoch_end(self):
         print("initializing next epoch")
