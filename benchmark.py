@@ -4,6 +4,7 @@ import data_processing as dp
 import time
 from tqdm import tqdm
 import logging
+import os
 
 logging.basicConfig(filename = "outputs.log",format
                     = '%(asctime)s %(message)s',level
@@ -22,15 +23,14 @@ for idx,ele in tqdm(enumerate(seq)):
         break
 t2 = time.time()
 logging.debug("sequence took %d to complete"%(t2-t1))
-'''
+
 logging.info("starting tf.dataset method")
 t1 = time.time()
 seq = dp.KittiGenerator(path_to_labels,path_to_images)
-dataset = seq.get_tf_handle() 
+seq.to_tfrecord()
 index = 0
-for it in tqdm(range(int(test_size))):
-    ele = dataset.batch(cache,drop_remainder = True)
-    print(list(dataset.as_numpy_iterator()))
+
+for it in tqdm(tf.data.TFRecordDataset(filenames = os.listdir("./records/"))):
+    print(it)
 t2 = time.time()
 logging.debug("dataset took %d complete"%(t2-t1))
-'''

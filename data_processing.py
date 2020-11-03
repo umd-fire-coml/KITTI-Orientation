@@ -8,6 +8,8 @@ from tensorflow.keras.utils import Sequence
 import tensorflow as tf
 import warnings
 from pathlib2 import Path
+from datetime import datetime
+from tqdm import tqdm
 #import tensorflow as tf
 #####
 # Training setting
@@ -17,6 +19,8 @@ VEHICLES = ['Car', 'Truck', 'Van', 'Tram', 'Pedestrian', 'Cyclist']
 ALL_OBJ =  ['Cyclist','Tram','Person_sitting','Truck','Pedestrian','Van','Car','Misc','DontCare']
 NUM_CATS = 4
 NUMPY_TYPE = np.float32
+VIEW_ANGLE_TOTAL_X = 1.4835298642
+VIEW_ANGLE_TOTAL_Y = 0.55850536064
 
 # make sure that math.tau isn't causint issues
 def alpha_rad_to_tricoine(alpha_rad, sectors=3):
@@ -89,6 +93,28 @@ def angle2cat(angle:int, n:int = 4):
     arr = np.zeros(n).astype(NUMPY_TYPE)
     arr[idx] = 1.0
     return arr
+
+def qualityaware(distr_cats,ry_cats:int=4):
+    #Spread out the value for quality-aware loss
+    section_number = np.where(np.isclose(distr_cats,1.0))[0]
+    cat_num = (int(ry_cats - 2)/2) # Remove the 1 and 0 sector, and divide by 2
+    #
+    left = section_number - 1
+    right = section_number + 1
+    if right == ry_cats:
+        right = 0
+    if left == -1:
+        left = ry_cats-1
+            
+    for i in range(int(cat_num)):
+        distr_cats[right] = 1 - 1/(cat_num + 1) * (i+1)
+        distr_cats[left] = 1 - 1/(cat_num + 1) * (i+1)
+        right += 1
+        left -= 1
+        if right == ry_cats:
+            right = 0
+        if left == -1:
+            left = ry_cats-1
 
 def compute_anchors(angle):
     # angle is the new_alpha angle between 0 and 2pi
@@ -214,6 +240,10 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
             2.*np.pi - obj['new_alpha']).astype(NUMPY_TYPE)
         obj['alpha_sector_flipped'] = angle2cat(2.*np.pi -obj['new_alpha'],num_alpha_sectors)
         obj['rot_y_sector_flipped'] = angle2cat(2.*np.pi -obj['new_alpha'],num_rot_y_sectors)
+        center = ((obj['xmin']+obj['xmax'])/2,(obj['ymin']+obj['ymax'])/2)
+        obj['view_angle'] = center[0]/NORM_W*VIEW_ANGLE_TOTAL_X - (VIEW_ANGLE_TOTAL_X/2)
+        obj['distr'] = qualityaware(obj['rot_y_sector'],num_rot_y_sectors)
+        obj['distr_flipped'] = qualityaware(obj['rot_y_sector_flipped'],num_rot_y_sectors)
         
         
 
@@ -266,7 +296,7 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
 
 # get the bounding box,  values for the instance
 # this automatically does flips
-def prepare_input_and_output(image_dir:str, train_inst):
+def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
     # Prepare image patch
     xmin = train_inst['xmin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     ymin = train_inst['ymin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
@@ -291,11 +321,22 @@ def prepare_input_and_output(image_dir:str, train_inst):
     img = img[:,:,::-1]
 
     # if the image crop is flipped also flip the orientation values
-    if flip > 0.5:
-        return img, train_inst['dims'], train_inst['multibin_orientation_flipped'], train_inst['multibin_confidence_flipped']
-    else:
-        return img, train_inst['dims'], train_inst['multibin_orientation'], train_inst['multibin_confidence']
+    if style == 'multibin':
+        if flip > 0.5:
+            return img,train_inst['dims'], train_inst['multibin_orientation_flipped'], train_inst['multibin_confidence_flipped']
+        else:
+            return img, train_inst['dims'], train_inst['multibin_orientation'], train_inst['multibin_confidence']
+    elif style =='quality aware':
+        if flip>0.5:
+            return img,train_inst['view_angle'],train_inst['rot_y_sector'],train_inst['distr']
+        else:
+            return img,train_inst['view_angle'],train_inst['rot_y_sector_flipped'],train_inst['distr_flipped']
 
+def fp_feature(value):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+def int_feature(value):
+  """Returns an int64_list from a bool / enum / int / uint."""
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 class KittiGenerator(Sequence):
 
@@ -309,12 +350,15 @@ class KittiGenerator(Sequence):
     def __init__(self,label_dir:str,image_dir:str,mode = "train",batch_size = 8,**kwargs):
         self.label_dir = label_dir
         self.image_dir = image_dir
-        self.all_objs = parse_annotation(label_dir,image_dir,mode)
+        self._alpha_sectors = 4 if 'alpha_sectors' not in kwargs else kwargs['alpha_sectors']
+        self._roty_sectors = 4 if 'roty_sectors' not in kwargs else kwargs['roty_sectors']
+        self.all_objs = parse_annotation(label_dir,image_dir,mode,self._alpha_sectors,self._roty_sectors)
         self.mode = mode
         self.batch_size = batch_size
-        if mode!='test':
+        
+        if mode=='test':
             warnings.warn("testing mode has not been inplemented yet")
-        if mode!='val':
+        if mode=='val':
             warnings.warn("validation mode has not been inplemented yet")
         self._clen = len(self)
         self._keys = list(range(self._clen))
@@ -326,6 +370,10 @@ class KittiGenerator(Sequence):
         if 'alpha' in kwargs and kwargs['alpha']:
             warnings.warn("alpha mode has not been inplemented yet")
             self.alpha_m = True
+        if 'style' in kwargs:
+            self.style = kwargs['style']
+        else:
+            self.style = 'multibin'
 
     def __len__(self)->int:
         return len(self.all_objs)//self.batch_size
@@ -335,13 +383,25 @@ class KittiGenerator(Sequence):
         r_bound = self.batch_size+idx
         r_bound = r_bound if r_bound<self._clen else self._clen
         x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))  # batch of images
+        currt_inst = 0
+        if self.style == 'quality_aware':
+            va_batch = np.zeros((r_bound - l_bound, 1))
+            cry_batch = np.zeros((r_bound - l_bound, self._alpha_sectors))
+            d_batch = np.zeros((r_bound - l_bound,self._alpha_sectors))
+            for key in self._keys[l_bound:r_bound]:
+                image,view_angle,categorical_ry,distr_ry = prepare_input_and_output(self.image_dir,self.all_objs[key],'quality aware')
+                x_batch[currt_inst, :] = image
+                va_batch[currt_inst, :] = view_angle
+                cry_batch[currt_inst, :] = categorical_ry
+                d_batch[currt_inst, :] = distr_ry
+            return [x_batch,va_batch], [cry_batch, d_batch]
+
         d_batch = np.zeros((r_bound - l_bound, 3))  # batch of dimensions
         # batch of cos,sin values for each bin
         o_batch = np.zeros((r_bound - l_bound, BIN, 2))
         # batch of confs for each bin
         c_batch = np.zeros((r_bound - l_bound, BIN))
         acat_batch = np.zeros((r_bound-l_bound,NUM_CATS))
-        currt_inst = 0
         for key in self._keys[l_bound:r_bound]:
             image, dimension, orientation, confidence = prepare_input_and_output(
                 self.image_dir, self.all_objs[key])
@@ -355,7 +415,7 @@ class KittiGenerator(Sequence):
         if self.alpha_m:
             raise Exception("ALPHA MODE UNIMPLEMENTED")
             #return x_batch, [d_batch, o_batch, c_batch,acat_batch]
-        return x_batch, d_batch, o_batch, c_batch
+        return x_batch, [d_batch, o_batch, c_batch]
 
     def on_epoch_end(self):
         print("initializing next epoch")
@@ -372,11 +432,15 @@ class KittiGenerator(Sequence):
         if self._idx>=len(self):
             self.on_epoch_end()
         return result
-    def get_tf_handle(self)->tf.data.Dataset:
-        if self.alpha_m:
-            raise Exception("alpha mode has not been implemented")
-        output_shape = [tf.TensorShape([self.batch_size,NORM_H,NORM_W,3]),
-            [tf.TensorShape([self.batch_size,3]),
-                tf.TensorShape([self.batch_size,BIN,2]),
-                tf.TensorShape([self.batch_size,BIN])]]
-        return tf.data.Dataset.from_generator(generator=lambda:next(self),output_types={(self.batch_size,NORM_H,NORM_W,3,tf.float32),(self.batch_size,3,tf.float32),(self.batch_size,BIN,2,tf.float32),(self.batch_size,BIN,tf.float32)})
+    def to_tfrecord(self, path:str = './records/'):
+        with tf.io.TFRecordWriter('%s%s-%s-.tfrec'%(path,self.mode,datetime.now().strftime('%Y%m%d%H%M%S'))) as writer:
+            for c,i in tqdm(enumerate(self)):
+                inp,out = i
+                feature = {
+                    'idx': int_feature(c),
+                    'input': fp_feature(inp),
+                    'output':fp_feature(out)
+                }
+                example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
+                writer.write(example_proto.SerializeToString())
+
