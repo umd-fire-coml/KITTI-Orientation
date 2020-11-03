@@ -1,0 +1,10 @@
+dataset
+__pycache__
+*.py[cod]
+*$py.class
+*.swp
+<<<<<<< HEAD
+*.log
+=======
+.idea/*
+>>>>>>> origin/loss_function
