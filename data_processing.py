@@ -457,15 +457,18 @@ class KittiGenerator(Sequence):
         if self._idx>=len(self):
             self.on_epoch_end()
         return result
-    def to_tfrecord(self, path:str = './records/'):
-        with tf.io.TFRecordWriter('%s%s-%s-.tfrec'%(path,self.mode,datetime.now().strftime('%Y%m%d%H%M%S'))) as writer:
+    def to_tfrecord(self, path:str = './records/')->str:
+        writer_path = '%s%s-%s-.tfrec'%(path,self.mode,datetime.now().strftime('%Y%m%d%H%M%S'))
+        with tf.io.TFRecordWriter(writer_path) as writer:
             for c,i in tqdm(enumerate(self)):
                 inp,out = i
+                print(inp)
                 feature = {
                     'idx': int_feature(c),
-                    'input': fp_feature(inp),
-                    'output':fp_feature(out)
+                    'input':tf.data.Dataset.from_tensor_slices(inp),
+                    'output':tf.data.Dataset.from_tensor_slices(out)
                 }
                 example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
                 writer.write(example_proto.SerializeToString())
+        return writer_path
 
