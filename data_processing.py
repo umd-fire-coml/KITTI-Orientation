@@ -326,11 +326,11 @@ def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
             return img,train_inst['dims'], train_inst['multibin_orientation_flipped'], train_inst['multibin_confidence_flipped']
         else:
             return img, train_inst['dims'], train_inst['multibin_orientation'], train_inst['multibin_confidence']
-    elif style =='quality aware':
+    else:
         if flip>0.5:
-            return img,train_inst['view_angle'],train_inst['rot_y_sector'],train_inst['distr']
+            return img,train_inst['dims'],train_inst[style]
         else:
-            return img,train_inst['view_angle'],train_inst['rot_y_sector_flipped'],train_inst['distr_flipped']
+            return img,train_inst['dims'],train_inst['%s_flipped'%style]
 
 def fp_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
@@ -348,12 +348,11 @@ class KittiGenerator(Sequence):
         batch_size (int) : tells batchsize to use
     '''
     # update to remove kwargs
-    def __init__(self,label_dir:str,image_dir:str, mode = "train", batch_size = 8, orientation_type = "multibin", **kwargs):
+    def __init__(self,label_dir:str,image_dir:str, mode = "train", batch_size = 8, orientation_type = "multibin", sectors = 4):
         self.label_dir = label_dir
         self.image_dir = image_dir
-        self._alpha_sectors = 4 if 'alpha_sectors' not in kwargs else kwargs['alpha_sectors']
-        self._roty_sectors = 4 if 'roty_sectors' not in kwargs else kwargs['roty_sectors']
-        self.all_objs = parse_annotation(label_dir,image_dir,mode,self._alpha_sectors,self._roty_sectors)
+        self._sectors = sectors
+        self.all_objs = parse_annotation(label_dir,image_dir,mode,self._sectors,self._sectors)
         self.mode = mode
         self.batch_size = batch_size
         
@@ -364,18 +363,8 @@ class KittiGenerator(Sequence):
         self._clen = len(self)
         self._keys = list(range(self._clen))
         np.random.shuffle(self._keys)
-        self.alpha_m = False
         self.epochs = 0
-        self._idx = 0
-        self._args = kwargs
-        if 'alpha' in kwargs and kwargs['alpha']:
-            warnings.warn("alpha mode has not been inplemented yet")
-            self.alpha_m = True
-        # update name to orientation_type
-        if 'style' in kwargs:
-            self.style = kwargs['orientation_type']
-        else:
-            self.style = 'multibin'
+        self.orientation_type = orientation_type
 
     def __len__(self)->int:
         return len(self.all_objs)//self.batch_size
@@ -385,62 +374,59 @@ class KittiGenerator(Sequence):
         r_bound = self.batch_size+idx
         r_bound = r_bound if r_bound<self._clen else self._clen
         x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))  # batch of images
+        d_batch = np.zeros((r_bound - l_bound, 3))  # batch of dimensions
         currt_inst = 0
-        
-        # output specs
+        '''# output specs
         if self.orientation_type == "tricosine"
             # return obj_img_batch, obj_dim_batch, obj_tricosine_batch
         if self.orientation_type == "alpha"
             # return obj_img_batch, obj_dim_batch, obj_alpha_batch
         if self.orientation_type == "rot_y"
             # return obj_img_batch, obj_dim_batch, obj_rot_y_batch
-        if self.orientation_type == "alpha_sec"
+        if self.orientation_type == "alpha_sector"
             assert obj_alpha_sec_batch.shape() == (bs, num_alpha_sectors)
             # return obj_img_batch, obj_dim_batch, obj_alpha_sec_batch
-        if self.orientation_type == "rot_y_sec"
+        if self.orientation_type == "rot_y_sector"
             assert obj_rot_y_sec_batch.shape() == (bs, num_rot_y_sectors)
             # return obj_img_batch, obj_dim_batch, obj_rot_y_sec_batch
         if self.orientation_type == "multibin"
             assert obj_multibin_orientation_batch.shape() == (bs, 2, 2)
             assert obj_multibin_conf_batch.shape() == (bs, 2, 1)
             # return obj_img_batch, obj_dim_batch, obj_multibin_orientation_batch, obj_multibin_conf_batch
-
-        
-        if self.style == 'quality_aware':
-            va_batch = np.zeros((r_bound - l_bound, 1))
-            cry_batch = np.zeros((r_bound - l_bound, self._alpha_sectors))
-            d_batch = np.zeros((r_bound - l_bound,self._alpha_sectors))
+        '''
+        if self.orientation_type == "multibin":
+            # batch of confs for each bin
+            c_batch = np.zeros((r_bound - l_bound, BIN))
+            o_batch = np.zeros((r_bound - l_bound, BIN, 2))
+            #acat_batch = np.zeros((r_bound-l_bound,NUM_CATS))
             for key in self._keys[l_bound:r_bound]:
-                image,view_angle,categorical_ry,distr_ry = prepare_input_and_output(self.image_dir,self.all_objs[key],'quality aware')
+                image, dimension, orientation, confidence = prepare_input_and_output(
+                    self.image_dir, self.all_objs[key])
                 x_batch[currt_inst, :] = image
-                va_batch[currt_inst, :] = view_angle
-                cry_batch[currt_inst, :] = categorical_ry
-                d_batch[currt_inst, :] = distr_ry
-            return [x_batch,va_batch], [cry_batch, d_batch]
-
-        d_batch = np.zeros((r_bound - l_bound, 3))  # batch of dimensions
-        # batch of cos,sin values for each bin
-        o_batch = np.zeros((r_bound - l_bound, BIN, 2))
-        # batch of confs for each bin
-        c_batch = np.zeros((r_bound - l_bound, BIN))
-        acat_batch = np.zeros((r_bound-l_bound,NUM_CATS))
-        for key in self._keys[l_bound:r_bound]:
-            image, dimension, orientation, confidence = prepare_input_and_output(
-                self.image_dir, self.all_objs[key])
-            x_batch[currt_inst, :] = image
-            d_batch[currt_inst, :] = dimension
-            o_batch[currt_inst, :] = orientation
-            c_batch[currt_inst, :] = confidence
-            if self.alpha_m:
-                acat_batch[currt_inst,angle2cat(self.all_objs[key]['new_alpha'])] = 1
-            currt_inst += 1
-        if self.alpha_m:
-            raise Exception("ALPHA MODE UNIMPLEMENTED")
-            #return x_batch, [d_batch, o_batch, c_batch,acat_batch]
-        return x_batch, [d_batch, o_batch, c_batch]
-    
-    
-    
+                d_batch[currt_inst, :] = dimension
+                o_batch[currt_inst, :] = orientation
+                c_batch[currt_inst, :] = confidence
+                currt_inst += 1
+            return x_batch, d_batch, o_batch, c_batch
+        elif self.orientation_type == "rot_y_sector" or self.orientation_type == "alpha_sector":
+            s_batch = np.zeros((r_bound - l_bound, self._sectors))
+            for key in self._keys[l_bound:r_bound]:
+                image,dimension,sector = prepare_input_and_output(self.image_dir,self.all_objs[key],self.orientation_type)
+                x_batch[currt_inst, :] = image
+                d_batch[currt_inst, :] = dimension
+                s_batch[currt_inst,:] = sector
+            return x_batch,d_batch,s_batch
+        elif self.orientation_type == "alpha" or self.orientation_type == 'rot_y':
+            a_batch = np.zeros((r_bound - l_bound, 1))
+            for key in self._keys[l_bound:r_bound]:
+                image,dimension,angle = prepare_input_and_output(self.image_dir,self.all_objs[key],self.orientation_type)
+                x_batch[currt_inst, :] = image
+                d_batch[currt_inst, :] = dimension
+                a_batch[currt_inst,:] = angle
+            return x_batch,d_batch,a_batch
+        else:
+            raise Exception("?????")
+            
 
     def on_epoch_end(self):
         print("initializing next epoch")
@@ -471,4 +457,3 @@ class KittiGenerator(Sequence):
                 example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
                 writer.write(example_proto.SerializeToString())
         return writer_path
-
