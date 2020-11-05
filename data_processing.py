@@ -115,6 +115,7 @@ def qualityaware(distr_cats,ry_cats:int=4):
             right = 0
         if left == -1:
             left = ry_cats-1
+    return distr_cats
 
 def compute_anchors(angle):
     # angle is the new_alpha angle between 0 and 2pi
@@ -246,7 +247,7 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
         obj['distr_flipped'] = qualityaware(obj['rot_y_sector_flipped'],num_rot_y_sectors)
         
         
-
+    '''
     for obj in all_objs:
         assert isinstance(obj['class_name'], str)  # str name of the class of the object
 
@@ -291,7 +292,7 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
         assert isinstance(obj['rot_y_sector'], np.ndarray)  # kitti orientation in rot_y_sector
         assert obj['rot_y_sector'].shape == (num_rot_y_sectors,)
         assert obj['rot_y_sector'].dtype == np.dtype('float32')
-
+    '''
     return all_objs
 
 # get the bounding box,  values for the instance
@@ -326,6 +327,16 @@ def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
             return img,train_inst['dims'], train_inst['multibin_orientation_flipped'], train_inst['multibin_confidence_flipped']
         else:
             return img, train_inst['dims'], train_inst['multibin_orientation'], train_inst['multibin_confidence']
+    elif style == 'alpha':
+        if flip >0.5:
+            return img, train_inst['dims'],train_inst['alpha']
+        else:
+            return img, train_inst['dims'],2.*np.pi -train_inst['alpha']
+    elif style == 'rot_y':
+        if flip >0.5:
+            return img, train_inst['dims'],train_inst['rot_y']
+        else:
+            return img, train_inst['dims'],2.*np.pi -train_inst['rot_y']
     else:
         if flip>0.5:
             return img,train_inst['dims'],train_inst[style]
@@ -416,6 +427,14 @@ class KittiGenerator(Sequence):
                 d_batch[currt_inst, :] = dimension
                 s_batch[currt_inst,:] = sector
             return x_batch,d_batch,s_batch
+        elif self.orientation_type =='tricosine':
+            tc_batch = np.zeros((r_bound - l_bound, 3))
+            for key in self._keys[l_bound:r_bound]:
+                image,dimension,tricos = prepare_input_and_output(self.image_dir,self.all_objs[key],self.orientation_type)
+                x_batch[currt_inst, :] = image
+                d_batch[currt_inst, :] = dimension
+                tc_batch[currt_inst,:] = tricos
+            return x_batch,d_batch,tc_batch
         elif self.orientation_type == "alpha" or self.orientation_type == 'rot_y':
             a_batch = np.zeros((r_bound - l_bound, 1))
             for key in self._keys[l_bound:r_bound]:
@@ -425,7 +444,7 @@ class KittiGenerator(Sequence):
                 a_batch[currt_inst,:] = angle
             return x_batch,d_batch,a_batch
         else:
-            raise Exception("?????")
+            raise Exception("Invalid Orientation Type")
             
 
     def on_epoch_end(self):
