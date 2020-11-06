@@ -1,23 +1,38 @@
+<<<<<<< HEAD
+#! /bin/python
+=======
 #! /bin/python3
+>>>>>>> origin/FTR-data-processor
 import os
 import math
 import numpy as np
 import cv2
 import copy
+<<<<<<< HEAD
 from tensorflow.keras.utils import Sequence
 import tensorflow as tf
 import warnings
 from pathlib2 import Path
 from datetime import datetime
 from tqdm import tqdm
+=======
+
+>>>>>>> origin/FTR-data-processor
+#import tensorflow as tf
+#####
+# Training setting
 BIN, OVERLAP = 2, 0.1
 NORM_H, NORM_W = 224, 224
 VEHICLES = ['Car', 'Truck', 'Van', 'Tram', 'Pedestrian', 'Cyclist']
+<<<<<<< HEAD
 ALL_OBJ =  ['Cyclist','Tram','Person_sitting','Truck','Pedestrian','Van','Car','Misc','DontCare']
 NUM_CATS = 4
 NUMPY_TYPE = np.float32
 VIEW_ANGLE_TOTAL_X = 1.4835298642
 VIEW_ANGLE_TOTAL_Y = 0.55850536064
+=======
+
+>>>>>>> origin/FTR-data-processor
 
 # make sure that math.tau isn't causint issues
 def alpha_rad_to_tricoine(alpha_rad, sectors=3):
@@ -83,6 +98,7 @@ def tricosine_to_alpha_rad(sector_affinity, sectors=3):
     mean_alpha_rads = np.arctan2(sum_sin_alpha_rads, sum_cos_alpha_rads)
     return mean_alpha_rads
 
+<<<<<<< HEAD
 def angle2cat(angle:int, n:int = 4):
     if angle<0:
         angle += math.tau
@@ -113,6 +129,8 @@ def qualityaware(distr_cats,ry_cats:int=4):
         if left == -1:
             left = ry_cats-1
     return distr_cats
+=======
+>>>>>>> origin/FTR-data-processor
 
 def compute_anchors(angle):
     # angle is the new_alpha angle between 0 and 2pi
@@ -136,13 +154,19 @@ def compute_anchors(angle):
         anchors.append([r_index % BIN, angle - r_index*wedge])
 
     return anchors
+<<<<<<< HEAD
 # this creates the full dict from the train val directories
 def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num_rot_y_sectors=4):
+=======
+
+
+def parse_annotation(label_dir, image_dir):
+>>>>>>> origin/FTR-data-processor
     all_objs = []
     dims_avg = {key: np.array([0, 0, 0]) for key in VEHICLES}
     dims_cnt = {key: 0 for key in VEHICLES}
 
-    for label_file in tqdm(sorted(os.listdir(label_dir))):
+    for label_file in sorted(os.listdir(label_dir)):
         image_file = label_file.replace('txt', 'png')
 
         for line in open(label_dir + label_file).readlines():
@@ -214,11 +238,16 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
         obj['multibin_confidence'] = confidence.astype(NUMPY_TYPE)
 
         # add our implementation here
+<<<<<<< HEAD
         obj['tricosine'] =  alpha_rad_to_tricoine(
             obj['new_alpha']).astype(NUMPY_TYPE)
         obj['alpha_sector'] = angle2cat(obj['new_alpha'],num_alpha_sectors)
         obj['rot_y_sector'] = angle2cat(obj['new_alpha'],num_rot_y_sectors)
+=======
+        obj['tri_sector_affinity'] = alpha_deg_to_sector_affinity(
+            obj['new_alpha'])
 
+>>>>>>> origin/FTR-data-processor
         # Get orientation and confidence values for flip
         orientation = np.zeros((BIN, 2))
         confidence = np.zeros(BIN)
@@ -231,6 +260,8 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
             confidence[anchor[0]] = 1
 
         confidence = confidence / np.sum(confidence)
+
+<<<<<<< HEAD
         obj['multibin_orientation_flipped'] = orientation.astype(NUMPY_TYPE)
         obj['multibin_confidence_flipped'] = confidence.astype(NUMPY_TYPE)
         # add our implementation here
@@ -242,9 +273,8 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
         obj['view_angle'] = center[0]/NORM_W*VIEW_ANGLE_TOTAL_X - (VIEW_ANGLE_TOTAL_X/2)
         obj['distr'] = qualityaware(obj['rot_y_sector'],num_rot_y_sectors)
         obj['distr_flipped'] = qualityaware(obj['rot_y_sector_flipped'],num_rot_y_sectors)
-        obj['orient_flipped'] = orientation 
-        obj['conf_flipped'] = confidence
-
+        
+        
     '''
     for obj in all_objs:
         assert isinstance(obj['class_name'], str)  # str name of the class of the object
@@ -270,8 +300,14 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
 
         assert isinstance(obj['rot_y'], float)  # kitti orientation in rot_y
         assert obj['rot_y'] >= -math.pi and obj['rot_y'] <= math.pi
+=======
+        obj['orient_flipped'] = orientation
+        obj['conf_flipped'] = confidence
 
         # add our implementation here
+        obj['tri_sector_affinity_flipped'] = sector_affinity_to_alpha_deg(
+            2.*np.pi - obj - obj['new_alpha'])
+>>>>>>> origin/FTR-data-processor
 
         assert isinstance(obj['tricosine'], np.ndarray)  # kitti orientation in tricosine
         assert obj['tricosine'].shape == (3,)
@@ -296,8 +332,14 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
     return all_objs
 
 # get the bounding box,  values for the instance
+<<<<<<< HEAD
 # this automatically does flips
 def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
+=======
+
+
+def prepare_input_and_output(image_dir, train_inst):
+>>>>>>> origin/FTR-data-processor
     # Prepare image patch
     xmin = train_inst['xmin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     ymin = train_inst['ymin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
@@ -358,6 +400,7 @@ def int_feature(value):
   """Returns an int64_list from a bool / enum / int / uint."""
   return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
+<<<<<<< HEAD
 class KittiGenerator(Sequence):
 
     '''Creates A KittiGenerator Sequence
@@ -485,3 +528,58 @@ class KittiGenerator(Sequence):
                 example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
                 writer.write(example_proto.SerializeToString())
         return writer_path
+=======
+def data_gen(image_dir, all_objs, batch_size):
+    num_obj = len(all_objs)
+
+    keys = range(num_obj)
+    np.random.shuffle(keys)
+
+    # start index
+    l_bound = 0
+    # end index
+    r_bound = batch_size if batch_size < num_obj else num_obj
+
+    while True:
+        # if batch accumulated
+        if l_bound == r_bound:
+            # reset l_bound and r_bound
+            l_bound = 0
+            r_bound = batch_size if batch_size < num_obj else num_obj
+            # shuffle obj idxs
+            np.random.shuffle(keys)
+
+        currt_inst = 0
+        # set placeholder values
+        x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))  # batch of images
+        d_batch = np.zeros((r_bound - l_bound, 3))  # batch of dimensions
+        # batch of cos,sin values for each bin
+        o_batch = np.zeros((r_bound - l_bound, BIN, 2))
+        # batch of confs for each bin
+        c_batch = np.zeros((r_bound - l_bound, BIN))
+
+        for key in keys[l_bound:r_bound]:
+            # augment input image and fix object's orientation and confidence
+            image, dimension, orientation, confidence = prepare_input_and_output(
+                image_dir, all_objs[key])
+
+            # plt.figure(figsize=(5,5))
+            #plt.imshow(image/255./2.); plt.show()
+            #print dimension
+            #print orientation
+            #print confidence
+
+            x_batch[currt_inst, :] = image
+            d_batch[currt_inst, :] = dimension
+            o_batch[currt_inst, :] = orientation
+            c_batch[currt_inst, :] = confidence
+
+            currt_inst += 1
+
+        yield x_batch, [d_batch, o_batch, c_batch]
+
+        l_bound = r_bound
+        r_bound = r_bound + batch_size
+        if r_bound > num_obj:
+            r_bound = num_obj
+>>>>>>> origin/FTR-data-processor
