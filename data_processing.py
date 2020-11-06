@@ -329,9 +329,9 @@ def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
             return img, train_inst['dims'], train_inst['multibin_orientation'], train_inst['multibin_confidence']
     elif style == 'alpha':
         if flip >0.5:
-            return img, train_inst['dims'],train_inst['alpha']
+            return img, train_inst['dims'],train_inst['new_alpha']
         else:
-            return img, train_inst['dims'],2.*np.pi -train_inst['alpha']
+            return img, train_inst['dims'],2.*np.pi -train_inst['new_alpha']
     elif style == 'rot_y':
         if flip >0.5:
             return img, train_inst['dims'],train_inst['rot_y']
