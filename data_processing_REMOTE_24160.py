@@ -337,22 +337,6 @@ def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
         else:
             return img, train_inst['dims'], train_inst['multibin_orientation'], train_inst['multibin_confidence']
     elif style == 'alpha':
-<<<<<<< HEAD
-        if flip >0.5:
-            return img, train_inst['dims'],train_inst['new_alpha']
-        else:
-            return img, train_inst['dims'],2.*np.pi -train_inst['new_alpha']
-    elif style == 'rot_y':
-        if flip >0.5:
-            return img, train_inst['dims'],train_inst['rot_y']
-        else:
-            return img, train_inst['dims'],2.*np.pi -train_inst['rot_y']
-    else:
-        if flip>0.5:
-            return img,train_inst['dims'],train_inst[style]
-        else:
-            return img,train_inst['dims'],train_inst['%s_flipped'%style]
-=======
         if flip > 0.5:
             return img, train_inst['dims'], train_inst['new_alpha']
         else:
@@ -369,7 +353,6 @@ def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
             return img, train_inst['dims'], train_inst['%s_flipped'%style]
     else:
         raise Exception("No such orientation type: %s"%style)
->>>>>>> 482945457fa7a0bfd2cd8194f0bfd56d4942a4ed
 
 def fp_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
@@ -388,16 +371,12 @@ class KittiGenerator(Sequence):
         batch_size (int) : tells batchsize to use
     '''
     # update to remove kwargs
-<<<<<<< HEAD
-    def __init__(self,label_dir:str,image_dir:str, mode = "train", batch_size = 8, orientation_type = "multibin", sectors = 4):
-=======
     def __init__(self, label_dir:str,
                  image_dir:str, 
                  mode = "train", 
                  batch_size = 8,
                  orientation_type = "multibin",
                  sectors = 4):
->>>>>>> 482945457fa7a0bfd2cd8194f0bfd56d4942a4ed
         self.label_dir = label_dir
         self.image_dir = image_dir
         self._sectors = sectors
@@ -425,11 +404,7 @@ class KittiGenerator(Sequence):
         r_bound = r_bound if r_bound < self._clen else self._clen  # check for key index overflow
         x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))  # batch of images
         d_batch = np.zeros((r_bound - l_bound, 3))  # batch of dimensions
-<<<<<<< HEAD
-        currt_inst = 0
-=======
 
->>>>>>> 482945457fa7a0bfd2cd8194f0bfd56d4942a4ed
         '''# output specs
         if self.orientation_type == "tricosine"
             # return obj_img_batch, obj_dim_batch, obj_tricosine_batch
@@ -452,45 +427,13 @@ class KittiGenerator(Sequence):
             # batch of confs for each bin
             c_batch = np.zeros((r_bound - l_bound, BIN))
             o_batch = np.zeros((r_bound - l_bound, BIN, 2))
-<<<<<<< HEAD
-            #acat_batch = np.zeros((r_bound-l_bound,NUM_CATS))
-            for key in self._keys[l_bound:r_bound]:
-=======
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
->>>>>>> 482945457fa7a0bfd2cd8194f0bfd56d4942a4ed
                 image, dimension, orientation, confidence = prepare_input_and_output(
                     self.image_dir, self.all_objs[key])
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 o_batch[currt_inst, :] = orientation
                 c_batch[currt_inst, :] = confidence
-<<<<<<< HEAD
-                currt_inst += 1
-            return x_batch, d_batch, o_batch, c_batch
-        elif self.orientation_type == "rot_y_sector" or self.orientation_type == "alpha_sector":
-            s_batch = np.zeros((r_bound - l_bound, self._sectors))
-            for key in self._keys[l_bound:r_bound]:
-                image,dimension,sector = prepare_input_and_output(self.image_dir,self.all_objs[key],self.orientation_type)
-                x_batch[currt_inst, :] = image
-                d_batch[currt_inst, :] = dimension
-                s_batch[currt_inst,:] = sector
-            return x_batch,d_batch,s_batch
-        elif self.orientation_type =='tricosine':
-            tc_batch = np.zeros((r_bound - l_bound, 3))
-            for key in self._keys[l_bound:r_bound]:
-                image,dimension,tricos = prepare_input_and_output(self.image_dir,self.all_objs[key],self.orientation_type)
-                x_batch[currt_inst, :] = image
-                d_batch[currt_inst, :] = dimension
-                tc_batch[currt_inst,:] = tricos
-            return x_batch,d_batch,tc_batch
-        elif self.orientation_type == "alpha" or self.orientation_type == 'rot_y':
-            a_batch = np.zeros((r_bound - l_bound, 1))
-            for key in self._keys[l_bound:r_bound]:
-                image,dimension,angle = prepare_input_and_output(self.image_dir,self.all_objs[key],self.orientation_type)
-                x_batch[currt_inst, :] = image
-                d_batch[currt_inst, :] = dimension
-                a_batch[currt_inst,:] = angle
-=======
             return x_batch, d_batch, o_batch, c_batch
         elif self.orientation_type == "rot_y_sector" or self.orientation_type == "alpha_sector":
             s_batch = np.zeros((r_bound - l_bound, self._sectors))
@@ -515,7 +458,6 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 a_batch[currt_inst, :] = angle
->>>>>>> 482945457fa7a0bfd2cd8194f0bfd56d4942a4ed
             return x_batch,d_batch,a_batch
         else:
             raise Exception("Invalid Orientation Type")
@@ -530,16 +472,7 @@ class KittiGenerator(Sequence):
     def __str__(self):
         return "KittiDatagenerator:<size %d,image_dir:%s,label_dir:%s,epoch:%d>"%(len(self),self.image_dir,self.label_dir,self.epochs)
 
-<<<<<<< HEAD
-    def __next__(self):
-        result = self.__getitem__(self._idx)
-        self._idx += len(result)
-        if self._idx>=len(self):
-            self.on_epoch_end()
-        return result
-=======
     
->>>>>>> 482945457fa7a0bfd2cd8194f0bfd56d4942a4ed
     def to_tfrecord(self, path:str = './records/')->str:
         writer_path = '%s%s-%s-.tfrec'%(path,self.mode,datetime.now().strftime('%Y%m%d%H%M%S'))
         with tf.io.TFRecordWriter(writer_path) as writer:
