@@ -83,13 +83,26 @@ def tricosine_to_alpha_rad(sector_affinity, sectors=3):
     mean_alpha_rads = np.arctan2(sum_sin_alpha_rads, sum_cos_alpha_rads)
     return mean_alpha_rads
 
-def angle2cat(angle:int, n:int = 4):
-    if angle<0:
+def angle2sector(angle, n:int = 4):
+    # make neg alpha angle positive
+    if angle<0: 
         angle += math.tau
-    idx = int(angle/(math.tau/n))
+    sector_size = math.tau/n
+    idx = int(angle/sector_size)  
+    assert idx in range(n)
     arr = np.zeros(n).astype(NUMPY_TYPE)
     arr[idx] = 1.0
     return arr
+
+def sector2angle(angle_sector, n:int = 4):
+    idx = np.argmax(angle_sector)
+    assert idx in range(n)
+    sector_size = math.tau/n
+    center_offset = sector_size/2
+    new_alpha = idx * sector_size + center_offset
+    if new_alpha > math.pi:
+        alpha = new_alpha - math.tau
+    return alpha
 
 def qualityaware(distr_cats,ry_cats:int=4):
     #Spread out the value for quality-aware loss
@@ -216,8 +229,8 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
         # add our implementation here
         obj['tricosine'] =  alpha_rad_to_tricoine(
             obj['new_alpha']).astype(NUMPY_TYPE)
-        obj['alpha_sector'] = angle2cat(obj['new_alpha'],num_alpha_sectors)
-        obj['rot_y_sector'] = angle2cat(obj['new_alpha'],num_rot_y_sectors)
+        obj['alpha_sector'] = angle2sector(obj['new_alpha'],num_alpha_sectors)
+        obj['rot_y_sector'] = angle2sector(obj['new_alpha'],num_rot_y_sectors)
 
         # Get orientation and confidence values for flip
         orientation = np.zeros((BIN, 2))
@@ -236,8 +249,8 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
         # add our implementation here
         obj['tricosine_flipped'] = alpha_rad_to_tricoine(
             2.*np.pi - obj['new_alpha']).astype(NUMPY_TYPE)
-        obj['alpha_sector_flipped'] = angle2cat(2.*np.pi -obj['new_alpha'],num_alpha_sectors)
-        obj['rot_y_sector_flipped'] = angle2cat(2.*np.pi -obj['new_alpha'],num_rot_y_sectors)
+        obj['alpha_sector_flipped'] = angle2sector(2.*np.pi -obj['new_alpha'],num_alpha_sectors)
+        obj['rot_y_sector_flipped'] = angle2sector(2.*np.pi -obj['new_alpha'],num_rot_y_sectors)
         center = ((obj['xmin']+obj['xmax'])/2,(obj['ymin']+obj['ymax'])/2)
         obj['view_angle'] = center[0]/NORM_W*VIEW_ANGLE_TOTAL_X - (VIEW_ANGLE_TOTAL_X/2)
         obj['distr'] = qualityaware(obj['rot_y_sector'],num_rot_y_sectors)
