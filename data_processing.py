@@ -394,6 +394,10 @@ class KittiGenerator(Sequence):
         np.random.shuffle(self._keys)
         self.epochs = 0
         self.orientation_type = orientation_type
+        if orientation_type == 'multibin':
+            self.output_modifier = lambda x,y,z,a:x,[y,a]
+        else:
+            self.output_modifier = lambda x,y,z:x,z
 
     def __len__(self)->int:
         return len(self.all_objs) // self.batch_size
@@ -433,7 +437,7 @@ class KittiGenerator(Sequence):
                 d_batch[currt_inst, :] = dimension
                 o_batch[currt_inst, :] = orientation
                 c_batch[currt_inst, :] = confidence
-            return x_batch, d_batch, o_batch, c_batch
+            return self.output_modifier((x_batch, d_batch, o_batch, c_batch))
         elif self.orientation_type == "rot_y_sector" or self.orientation_type == "alpha_sector":
             s_batch = np.zeros((r_bound - l_bound, self._sectors))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -441,7 +445,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 s_batch[currt_inst, :] = sector
-            return x_batch,d_batch,s_batch
+            return self.output_modifier((x_batch,d_batch,s_batch))
         elif self.orientation_type =='tricosine':
             tc_batch = np.zeros((r_bound - l_bound, 3))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -449,7 +453,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 tc_batch[currt_inst, :] = tricos
-            return x_batch,d_batch,tc_batch
+            return self.output_modifier((x_batch,d_batch,tc_batch))
         elif self.orientation_type == "alpha" or self.orientation_type == 'rot_y':
             a_batch = np.zeros((r_bound - l_bound, 1))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -457,7 +461,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 a_batch[currt_inst, :] = angle
-            return x_batch,d_batch,a_batch
+            return self.output_modifier((x_batch,d_batch,a_batch))
         else:
             raise Exception("Invalid Orientation Type")
             
