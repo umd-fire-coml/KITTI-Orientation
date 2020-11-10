@@ -14,7 +14,7 @@ VEHICLES = ['Car', 'Truck', 'Van', 'Tram', 'Pedestrian', 'Cyclist']
 
 
 # make sure that math.tau isn't causint issues
-def alpha_rad_to_tricoine(alpha_rad, sectors=3):
+def alpha_rad_to_tricosine(alpha_rad, sectors=3):
     SECTOR_WIDTH = math.tau / sectors
     sector_affinity = np.full((sectors,), -1.0)
     # calculate the center sector affinity
