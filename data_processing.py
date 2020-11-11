@@ -537,5 +537,13 @@ if __name__=="__main__":
         if c == 97:
             print(i)
         if c == 128:
+            kgen.orientation_type = "alpha_sector" 
+        if c == 129:
+            print(i)
+        if c == 144:
+            kgen.orientation_type = "rot_y"
+        if c == 145:
+            print(i)
+        if c == 160:
             break
     print("all tests passed")
