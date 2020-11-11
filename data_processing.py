@@ -1,4 +1,4 @@
-#! /bin/python3
+#! /usr/bin/env python3
 import os
 import math
 import numpy as np
@@ -83,13 +83,26 @@ def tricosine_to_alpha_rad(sector_affinity, sectors=3):
     mean_alpha_rads = np.arctan2(sum_sin_alpha_rads, sum_cos_alpha_rads)
     return mean_alpha_rads
 
-def angle2cat(angle:int, n:int = 4):
-    if angle<0:
+def angle2sector(angle, n:int = 4):
+    # make neg alpha angle positive
+    if angle<0: 
         angle += math.tau
-    idx = int(angle/(math.tau/n))
+    sector_size = math.tau/n
+    idx = int(angle/sector_size)  
+    assert idx in range(n)
     arr = np.zeros(n).astype(NUMPY_TYPE)
     arr[idx] = 1.0
     return arr
+
+def sector2angle(angle_sector, n:int = 4):
+    idx = np.argmax(angle_sector)
+    assert idx in range(n)
+    sector_size = math.tau/n
+    center_offset = sector_size/2
+    new_alpha = idx * sector_size + center_offset
+    if new_alpha > math.pi:
+        alpha = new_alpha - math.tau
+    return alpha
 
 def qualityaware(distr_cats,ry_cats:int=4):
     #Spread out the value for quality-aware loss
@@ -134,8 +147,8 @@ def compute_anchors(angle):
     # basically check if the angle is also within majority part of the next wedge
     if (r_index*wedge - angle) < wedge/2 * (1+OVERLAP/2):
         anchors.append([r_index % BIN, angle - r_index*wedge])
-
     return anchors
+
 # this creates the full dict from the train val directories
 def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num_rot_y_sectors=4):
     all_objs = []
@@ -216,8 +229,8 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
         # add our implementation here
         obj['tricosine'] =  alpha_rad_to_tricoine(
             obj['new_alpha']).astype(NUMPY_TYPE)
-        obj['alpha_sector'] = angle2cat(obj['new_alpha'],num_alpha_sectors)
-        obj['rot_y_sector'] = angle2cat(obj['new_alpha'],num_rot_y_sectors)
+        obj['alpha_sector'] = angle2sector(obj['new_alpha'],num_alpha_sectors)
+        obj['rot_y_sector'] = angle2sector(obj['new_alpha'],num_rot_y_sectors)
 
         # Get orientation and confidence values for flip
         orientation = np.zeros((BIN, 2))
@@ -236,8 +249,8 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
         # add our implementation here
         obj['tricosine_flipped'] = alpha_rad_to_tricoine(
             2.*np.pi - obj['new_alpha']).astype(NUMPY_TYPE)
-        obj['alpha_sector_flipped'] = angle2cat(2.*np.pi -obj['new_alpha'],num_alpha_sectors)
-        obj['rot_y_sector_flipped'] = angle2cat(2.*np.pi -obj['new_alpha'],num_rot_y_sectors)
+        obj['alpha_sector_flipped'] = angle2sector(2.*np.pi -obj['new_alpha'],num_alpha_sectors)
+        obj['rot_y_sector_flipped'] = angle2sector(2.*np.pi -obj['new_alpha'],num_rot_y_sectors)
         center = ((obj['xmin']+obj['xmax'])/2,(obj['ymin']+obj['ymax'])/2)
         obj['view_angle'] = center[0]/NORM_W*VIEW_ANGLE_TOTAL_X - (VIEW_ANGLE_TOTAL_X/2)
         obj['distr'] = qualityaware(obj['rot_y_sector'],num_rot_y_sectors)
@@ -303,7 +316,7 @@ def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
     ymin = train_inst['ymin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     xmax = train_inst['xmax']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     ymax = train_inst['ymax']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
-    img = cv2.imread(image_dir + str(train_inst['image_path']))
+    img = cv2.imread(os.path.join(image_dir,str(train_inst['image_path'])))
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     # crop the image using the obj bounding box, deepcopy to prevent memory sharing
     img = copy.deepcopy(img[ymin:ymax+1, xmin:xmax+1]).astype(np.float32)
@@ -333,27 +346,46 @@ def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
     # if the image crop is flipped also flip the orientation values
     if style == 'multibin':
         if flip > 0.5:
-            return img,train_inst['dims'], train_inst['multibin_orientation_flipped'], train_inst['multibin_confidence_flipped']
+            return img, train_inst['dims'], train_inst['multibin_orientation_flipped'], train_inst['multibin_confidence_flipped']
         else:
             return img, train_inst['dims'], train_inst['multibin_orientation'], train_inst['multibin_confidence']
     elif style == 'alpha':
-        if flip >0.5:
-            return img, train_inst['dims'],train_inst['new_alpha']
+        if flip > 0.5:
+            return img, train_inst['dims'], train_inst['new_alpha']
         else:
-            return img, train_inst['dims'],2.*np.pi -train_inst['new_alpha']
+            return img, train_inst['dims'], math.tau-train_inst['new_alpha']
     elif style == 'rot_y':
-        if flip >0.5:
-            return img, train_inst['dims'],train_inst['rot_y']
+        if flip > 0.5:
+            return img, train_inst['dims'], train_inst['rot_y']
         else:
-            return img, train_inst['dims'],2.*np.pi -train_inst['rot_y']
+            return img, train_inst['dims'], math.tau-train_inst['rot_y']
+    elif style == 'rot_y_sector' or style == 'alpha_sector' or style == 'tricosine':
+        if flip > 0.5:
+            return img, train_inst['dims'], train_inst[style]
+        else:
+            return img, train_inst['dims'], train_inst['%s_flipped'%style]
     else:
-        if flip>0.5:
-            return img,train_inst['dims'],train_inst[style]
-        else:
-            return img,train_inst['dims'],train_inst['%s_flipped'%style]
+        raise Exception("No such orientation type: %s"%style)
+
+def ign_dim_handler(*args):
+    if len(args) == 3:
+        return args[0],args[2]
+    elif len(args) == 4:
+        return args[0],[args[2],args[3]]
+    elif len(args) == 1:
+        x = args[0]
+        if len(x)==3:
+            a,b,c = x
+            return a,c
+        if len(x)==4:
+            a,b,c,d = x
+            return a,[c,d]
+    else:
+        assert False,"dim handler failed!, please check inputs"
 
 def fp_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+
 def int_feature(value):
   """Returns an int64_list from a bool / enum / int / uint."""
   return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -368,7 +400,13 @@ class KittiGenerator(Sequence):
         batch_size (int) : tells batchsize to use
     '''
     # update to remove kwargs
-    def __init__(self,label_dir:str,image_dir:str, mode = "train", batch_size = 8, orientation_type = "multibin", sectors = 4):
+    def __init__(self, label_dir:str,
+                 image_dir:str, 
+                 mode = "train", 
+                 batch_size = 8,
+                 orientation_type = "multibin",
+                 sectors = 4,
+                 output_modifier = ign_dim_handler):
         self.label_dir = label_dir
         self.image_dir = image_dir
         self._sectors = sectors
@@ -380,22 +418,23 @@ class KittiGenerator(Sequence):
             warnings.warn("testing mode has not been inplemented yet")
         if mode=='val':
             warnings.warn("validation mode has not been inplemented yet")
-        self._clen = len(self)
-        self._keys = list(range(self._clen))
+            
+        self._clen = len(self.all_objs)  # number of objects
+        self._keys = list(range(self._clen))  # list of all object ids
         np.random.shuffle(self._keys)
         self.epochs = 0
         self.orientation_type = orientation_type
+        self.output_modifier = output_modifier
 
     def __len__(self)->int:
-        return len(self.all_objs)//self.batch_size
+        return len(self.all_objs) // self.batch_size
 
-    def __getitem__(self,idx):
-        l_bound = idx
-        r_bound = self.batch_size+idx
-        r_bound = r_bound if r_bound<self._clen else self._clen
+    def __getitem__(self, idx):
+        l_bound = idx * self.batch_size  # start of key index
+        r_bound = l_bound + self.batch_size  # end of key index
+        r_bound = r_bound if r_bound < self._clen else self._clen  # check for key index overflow
         x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))  # batch of images
         d_batch = np.zeros((r_bound - l_bound, 3))  # batch of dimensions
-        currt_inst = 0
         '''# output specs
         if self.orientation_type == "tricosine"
             # return obj_img_batch, obj_dim_batch, obj_tricosine_batch
@@ -418,40 +457,38 @@ class KittiGenerator(Sequence):
             # batch of confs for each bin
             c_batch = np.zeros((r_bound - l_bound, BIN))
             o_batch = np.zeros((r_bound - l_bound, BIN, 2))
-            #acat_batch = np.zeros((r_bound-l_bound,NUM_CATS))
-            for key in self._keys[l_bound:r_bound]:
+            for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
                 image, dimension, orientation, confidence = prepare_input_and_output(
                     self.image_dir, self.all_objs[key])
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 o_batch[currt_inst, :] = orientation
                 c_batch[currt_inst, :] = confidence
-                currt_inst += 1
-            return x_batch, d_batch, o_batch, c_batch
+            return self.output_modifier(x_batch, d_batch, o_batch, c_batch)
         elif self.orientation_type == "rot_y_sector" or self.orientation_type == "alpha_sector":
             s_batch = np.zeros((r_bound - l_bound, self._sectors))
-            for key in self._keys[l_bound:r_bound]:
+            for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
                 image,dimension,sector = prepare_input_and_output(self.image_dir,self.all_objs[key],self.orientation_type)
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
-                s_batch[currt_inst,:] = sector
-            return x_batch,d_batch,s_batch
+                s_batch[currt_inst, :] = sector
+            return self.output_modifier(x_batch,d_batch,s_batch)
         elif self.orientation_type =='tricosine':
             tc_batch = np.zeros((r_bound - l_bound, 3))
-            for key in self._keys[l_bound:r_bound]:
+            for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
                 image,dimension,tricos = prepare_input_and_output(self.image_dir,self.all_objs[key],self.orientation_type)
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
-                tc_batch[currt_inst,:] = tricos
-            return x_batch,d_batch,tc_batch
+                tc_batch[currt_inst, :] = tricos
+            return self.output_modifier(x_batch,d_batch,tc_batch)
         elif self.orientation_type == "alpha" or self.orientation_type == 'rot_y':
             a_batch = np.zeros((r_bound - l_bound, 1))
-            for key in self._keys[l_bound:r_bound]:
+            for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
                 image,dimension,angle = prepare_input_and_output(self.image_dir,self.all_objs[key],self.orientation_type)
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
-                a_batch[currt_inst,:] = angle
-            return x_batch,d_batch,a_batch
+                a_batch[currt_inst, :] = angle
+            return self.output_modifier(x_batch,d_batch,a_batch)
         else:
             raise Exception("Invalid Orientation Type")
             
@@ -465,12 +502,7 @@ class KittiGenerator(Sequence):
     def __str__(self):
         return "KittiDatagenerator:<size %d,image_dir:%s,label_dir:%s,epoch:%d>"%(len(self),self.image_dir,self.label_dir,self.epochs)
 
-    def __next__(self):
-        result = self.__getitem__(self._idx)
-        self._idx += len(result)
-        if self._idx>=len(self):
-            self.on_epoch_end()
-        return result
+
     def to_tfrecord(self, path:str = './records/')->str:
         writer_path = '%s%s-%s-.tfrec'%(path,self.mode,datetime.now().strftime('%Y%m%d%H%M%S'))
         with tf.io.TFRecordWriter(writer_path) as writer:
@@ -485,3 +517,25 @@ class KittiGenerator(Sequence):
                 example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
                 writer.write(example_proto.SerializeToString())
         return writer_path
+
+if __name__=="__main__":
+    print("testing code")
+    kgen = KittiGenerator("./dataset/training/label_2/","./dataset/training/image_2/")
+    for c,i in enumerate(tqdm(kgen)):
+        if c == 0:
+            print(i)
+        if c == 32:
+            kgen.orientation_type = "rot_y_sector" 
+        if c == 33:
+            print(i)
+        if c == 64:
+            kgen.orientation_type = 'alpha'
+        if c == 65:
+            print(i)
+        if c == 96:
+            kgen.orientation_type = 'tricosine'
+        if c == 97:
+            print(i)
+        if c == 128:
+            break
+    print("all tests passed")
