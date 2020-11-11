@@ -1,4 +1,4 @@
-#! /bin/python3
+#! /usr/bin/env python3
 import os
 import math
 import numpy as np
@@ -303,7 +303,7 @@ def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
     ymin = train_inst['ymin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     xmax = train_inst['xmax']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     ymax = train_inst['ymax']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
-    img = cv2.imread(image_dir + str(train_inst['image_path']))
+    img = cv2.imread(os.path.join(image_dir,str(train_inst['image_path'])))
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     # crop the image using the obj bounding box, deepcopy to prevent memory sharing
     img = copy.deepcopy(img[ymin:ymax+1, xmin:xmax+1]).astype(np.float32)
@@ -354,6 +354,22 @@ def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
     else:
         raise Exception("No such orientation type: %s"%style)
 
+def ign_dim_handler(*args):
+    if len(args) == 3:
+        return args[0],args[2]
+    elif len(args) == 4:
+        return args[0],[args[2],args[3]]
+    elif len(args) == 1:
+        x = args[0]
+        if len(x)==3:
+            a,b,c = x
+            return a,c
+        if len(x)==4:
+            a,b,c,d = x
+            return a,[c,d]
+    else:
+        assert False,"dim handler failed!, please check inputs"
+
 def fp_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
@@ -376,7 +392,8 @@ class KittiGenerator(Sequence):
                  mode = "train", 
                  batch_size = 8,
                  orientation_type = "multibin",
-                 sectors = 4):
+                 sectors = 4,
+                 output_modifier = ign_dim_handler):
         self.label_dir = label_dir
         self.image_dir = image_dir
         self._sectors = sectors
@@ -394,6 +411,7 @@ class KittiGenerator(Sequence):
         np.random.shuffle(self._keys)
         self.epochs = 0
         self.orientation_type = orientation_type
+        self.output_modifier = output_modifier
 
     def __len__(self)->int:
         return len(self.all_objs) // self.batch_size
@@ -404,7 +422,6 @@ class KittiGenerator(Sequence):
         r_bound = r_bound if r_bound < self._clen else self._clen  # check for key index overflow
         x_batch = np.zeros((r_bound - l_bound, 224, 224, 3))  # batch of images
         d_batch = np.zeros((r_bound - l_bound, 3))  # batch of dimensions
-
         '''# output specs
         if self.orientation_type == "tricosine"
             # return obj_img_batch, obj_dim_batch, obj_tricosine_batch
@@ -434,7 +451,7 @@ class KittiGenerator(Sequence):
                 d_batch[currt_inst, :] = dimension
                 o_batch[currt_inst, :] = orientation
                 c_batch[currt_inst, :] = confidence
-            return x_batch, d_batch, o_batch, c_batch
+            return self.output_modifier(x_batch, d_batch, o_batch, c_batch)
         elif self.orientation_type == "rot_y_sector" or self.orientation_type == "alpha_sector":
             s_batch = np.zeros((r_bound - l_bound, self._sectors))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -442,7 +459,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 s_batch[currt_inst, :] = sector
-            return x_batch,d_batch,s_batch
+            return self.output_modifier(x_batch,d_batch,s_batch)
         elif self.orientation_type =='tricosine':
             tc_batch = np.zeros((r_bound - l_bound, 3))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -450,7 +467,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 tc_batch[currt_inst, :] = tricos
-            return x_batch,d_batch,tc_batch
+            return self.output_modifier(x_batch,d_batch,tc_batch)
         elif self.orientation_type == "alpha" or self.orientation_type == 'rot_y':
             a_batch = np.zeros((r_bound - l_bound, 1))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -458,7 +475,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 a_batch[currt_inst, :] = angle
-            return x_batch,d_batch,a_batch
+            return self.output_modifier(x_batch,d_batch,a_batch)
         else:
             raise Exception("Invalid Orientation Type")
             
@@ -472,7 +489,7 @@ class KittiGenerator(Sequence):
     def __str__(self):
         return "KittiDatagenerator:<size %d,image_dir:%s,label_dir:%s,epoch:%d>"%(len(self),self.image_dir,self.label_dir,self.epochs)
 
-    
+
     def to_tfrecord(self, path:str = './records/')->str:
         writer_path = '%s%s-%s-.tfrec'%(path,self.mode,datetime.now().strftime('%Y%m%d%H%M%S'))
         with tf.io.TFRecordWriter(writer_path) as writer:
@@ -487,3 +504,25 @@ class KittiGenerator(Sequence):
                 example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
                 writer.write(example_proto.SerializeToString())
         return writer_path
+
+if __name__=="__main__":
+    print("testing code")
+    kgen = KittiGenerator("./dataset/training/label_2/","./dataset/training/image_2/")
+    for c,i in enumerate(tqdm(kgen)):
+        if c == 0:
+            print(i)
+        if c == 32:
+            kgen.orientation_type = "rot_y_sector" 
+        if c == 33:
+            print(i)
+        if c == 64:
+            kgen.orientation_type = 'alpha'
+        if c == 65:
+            print(i)
+        if c == 96:
+            kgen.orientation_type = 'tricosine'
+        if c == 97:
+            print(i)
+        if c == 128:
+            break
+    print("all tests passed")
