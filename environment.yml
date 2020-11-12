@@ -3,7 +3,7 @@ channels:
   - defaults
 dependencies:
   - python=3.7
-  - tensorflow
+  - tensorflow-gpu
   - pathlib2
   - opencv
   - tqdm
