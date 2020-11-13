@@ -31,9 +31,9 @@ def aos_convert_to_alpha(tensor, orientation_type):
     if orientation_type == 'rot_y_sectors': return aos_orientation_to_alpha_rad(tensor, 'rot_y_sectors')
     if orientation_type == 'alpha_sectors': return aos_orientation_to_alpha_rad(tensor, 'alpha_sectors')
     if orientation_type == 'multibin':      return aos_orientation_to_alpha_rad(tensor, 'multibin')
-    if orientation_type == 'rot_y':         return K.map_fun(roty_to_alpha_rad, tensor)  # OLD
+    # if orientation_type == 'rot_y':         return K.map_fun(roty_to_alpha_rad, tensor)  # OLD
     else:
-        # if orientation type is already 'alpha', no need to change
+        # if orientation type is already 'alpha' or 'rot_y', no need to change
         return tensor
 
 def aos_orientation_to_alpha_rad(tensor, orientation_type):

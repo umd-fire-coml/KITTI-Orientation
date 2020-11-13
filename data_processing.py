@@ -83,13 +83,26 @@ def tricosine_to_alpha_rad(sector_affinity, sectors=3):
     mean_alpha_rads = np.arctan2(sum_sin_alpha_rads, sum_cos_alpha_rads)
     return mean_alpha_rads
 
-def angle2cat(angle:int, n:int = 4):
-    if angle<0:
+def angle2sector(angle, n:int = 4):
+    # make neg alpha angle positive
+    if angle<0: 
         angle += math.tau
-    idx = int(angle/(math.tau/n))
+    sector_size = math.tau/n
+    idx = int(angle/sector_size)  
+    assert idx in range(n)
     arr = np.zeros(n).astype(NUMPY_TYPE)
     arr[idx] = 1.0
     return arr
+
+def sector2angle(angle_sector, n:int = 4):
+    idx = np.argmax(angle_sector)
+    assert idx in range(n)
+    sector_size = math.tau/n
+    center_offset = sector_size/2
+    new_alpha = idx * sector_size + center_offset
+    if new_alpha > math.pi:
+        alpha = new_alpha - math.tau
+    return alpha
 
 def qualityaware(distr_cats,ry_cats:int=4):
     #Spread out the value for quality-aware loss
