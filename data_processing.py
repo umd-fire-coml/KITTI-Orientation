@@ -482,7 +482,7 @@ class KittiGenerator(Sequence):
                 d_batch[currt_inst, :] = dimension
                 o_batch[currt_inst, :] = orientation
                 c_batch[currt_inst, :] = confidence
-            return self.output_modifier(x_batch, d_batch, o_batch, c_batch, obj_keys=self._keys[l_bound:r_bound], mode=self.mode)
+            return self.output_modifier(x_batch, d_batch, o_batch, c_batch, obj_keys=self._keys[l_bound:r_bound])
         elif self.orientation_type == "rot_y_sector" or self.orientation_type == "alpha_sector":
             s_batch = np.zeros((r_bound - l_bound, self._sectors))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -490,7 +490,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 s_batch[currt_inst, :] = sector
-            return self.output_modifier(x_batch,d_batch,s_batch, obj_keys=self._keys[l_bound:r_bound], mode=self.mode)
+            return self.output_modifier(x_batch,d_batch,s_batch, obj_keys=self._keys[l_bound:r_bound])
         elif self.orientation_type =='tricosine':
             tc_batch = np.zeros((r_bound - l_bound, 3))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -498,7 +498,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 tc_batch[currt_inst, :] = tricos
-            return self.output_modifier(x_batch,d_batch,tc_batch, obj_keys=self._keys[l_bound:r_bound], mode=self.mode)
+            return self.output_modifier(x_batch,d_batch,tc_batch, obj_keys=self._keys[l_bound:r_bound])
         elif self.orientation_type == "alpha" or self.orientation_type == 'rot_y':
             a_batch = np.zeros((r_bound - l_bound, 1))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -506,7 +506,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 a_batch[currt_inst, :] = angle
-            return self.output_modifier(x_batch,d_batch,a_batch, obj_keys=self._keys[l_bound:r_bound], mode=self.mode)
+            return self.output_modifier(x_batch,d_batch,a_batch, obj_keys=self._keys[l_bound:r_bound])
         else:
             raise Exception("Invalid Orientation Type")
             
