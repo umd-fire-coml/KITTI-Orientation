@@ -3,6 +3,7 @@ import tensorflow as tf
 from backbone_xception import Xception_model
 from add_output_layers import add_output_layers
 from tensorflow.keras import Input, Model
+from tensorflow.keras.models import load_model
 from loss_function import *
 import numpy as np
 import data_processing as dp
@@ -24,6 +25,8 @@ parser.add_argument('--epoch', dest = 'num_epoch', type = int, default=100,
                     help = 'Number of epoch used for training. Default value is 100')
 parser.add_argument('--kitti_dir', dest = 'kitti_dir', type = str, default='dataset',
                     help = 'path to kitti dataset directory. Its subdirectory should have training/ and testing/. Default path is dataset/')
+parser.add_argument('--load_weight_dir', dest = 'load_weight_dir', type = str, default=None,
+                    help = 'path to load weights from. Default is None')
 
 args = parser.parse_args()
 
@@ -86,9 +89,15 @@ if __name__=="__main__":
     x = add_output_layers(orientation, x, NUM_SECTOR,NUM_BIN )
     model = Model(inputs=inputs, outputs=x)
     model.compile(loss=loss_func(orientation), optimizer='adam')
+    if args.load_weight_dir:
+        print("Loading weights from: {}".format(args.load_weight_dir))
+        model.load_weights(args.load_weight_dir)
+        initial_epoch = int(args.load_weight_dir.split(".")[-2])
+    else:
+        initial_epoch = 1
     print('Starting Training')
     start_time = time.time()
-    history = model.fit(x = generator, epochs = num_epoch, verbose = 1,callbacks=[cp_callback])
+    history = model.fit(x = generator, epochs = num_epoch, verbose = 1,callbacks=[cp_callback], initial_epoch=initial_epoch)
 
     with open(os.path.join(weight_dir, 'training_hist.txt'), 'w') as f:
         f.write(str(history.history))
