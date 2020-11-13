@@ -75,6 +75,7 @@ def make_arrow(calibration, kitti_label, img, rot_y_pred, dim_pred=None):
                 point = point.astype(np.int16)
 
                 box_3d.append(point)
+                
     if dim_pred is not None:
         count = 0
         for i in [1,-1]:
