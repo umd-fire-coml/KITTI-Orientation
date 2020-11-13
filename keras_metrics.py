@@ -2,9 +2,9 @@ import tensorflow as tf
 import numpy as np
 
 from tensorflow.keras import backend as K
+from data_processing import tricosine_to_alpha_rad
 # from data_processing import alpha_sectors_to_alpha_rad  # <- Not not created
 # from data_processing import roty_sectors_to_alpha_rad   # <- Not not created
-from data_processing import tricosine_to_alpha_rad
 # from data_processing import multibin_to_alpha_rad       # <- Not not created
 # from data_processing import roty_to_alpha_rad           # <- Not not created
 
