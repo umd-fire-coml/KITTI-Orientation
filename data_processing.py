@@ -412,8 +412,8 @@ class KittiGenerator(Sequence):
     def __len__(self)->int:
         return len(self.all_objs) // self.batch_size
     
-    def output_modifier(*args, **kwargs):
-        if kwargs.pop('mode') == 'train':
+    def output_modifier(self,*args, **kwargs):
+        if self.mode == 'train':
             if len(args) == 3: # not multibin
                    return args[0],args[2]
             elif len(args) == 4:
@@ -428,21 +428,23 @@ class KittiGenerator(Sequence):
                     return a,[c,d]
             else:
                 assert False,"dim handler failed!, please check inputs"
-        if kwargs.pop('mode') == 'val':
+        elif self.mode == 'val':
             if len(args) == 3: # not multibin
-                   return args[0],args[2], kwargs.pop('obj_keys')
+                   return args[0],args[2], kwargs['obj_keys']
             elif len(args) == 4:
-                return args[0],[args[2],args[3]], kwargs.pop('obj_keys')
+                return args[0],[args[2],args[3]], kwargs['obj_keys']
             elif len(args) == 1:
                 x = args[0]
                 if len(x)==3:
                     a,b,c = x
-                    return a,c, kwargs.pop('obj_keys')
+                    return a,c, kwargs['obj_keys']
                 if len(x)==4:
                     a,b,c,d = x
-                    return a,[c,d], kwargs.pop('obj_keys')
+                    return a,[c,d], kwargs['obj_keys']
             else:
                 assert False,"dim handler failed!, please check inputs"
+        else:
+            assert False,"mode %s has not been implemented"%self.mode
             
 
     def __getitem__(self, idx):
@@ -537,29 +539,14 @@ class KittiGenerator(Sequence):
 if __name__=="__main__":
     print("testing code")
     kgen = KittiGenerator("./dataset/training/label_2/","./dataset/training/image_2/")
+    orientation_types = ["rot_y_sector",'alpha','tricosine',"alpha_sector","rot_y","multibin"]
     for c,i in enumerate(tqdm(kgen)):
-        if c == 0:
+        if c%16 ==0:
             print(i)
-        if c == 32:
-            kgen.orientation_type = "rot_y_sector" 
-        if c == 33:
-            print(i)
-        if c == 64:
-            kgen.orientation_type = 'alpha'
-        if c == 65:
-            print(i)
-        if c == 96:
-            kgen.orientation_type = 'tricosine'
-        if c == 97:
-            print(i)
-        if c == 128:
-            kgen.orientation_type = "alpha_sector" 
-        if c == 129:
-            print(i)
-        if c == 144:
-            kgen.orientation_type = "rot_y"
-        if c == 145:
-            print(i)
-        if c == 160:
+        if c%16 == 15:
+            kgen.mode='val'
+        if c%32 == 31:
+            kgen.orientation_type=orientation_types[(c+1)//32]
+        if c == 223:
             break
     print("all tests passed")
