@@ -158,8 +158,9 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
     for label_file in tqdm(sorted(os.listdir(label_dir))):
         image_file = label_file.replace('txt', 'png')
 
-        for line in open(label_dir + label_file).readlines():
-            line = line.strip().split(' ')
+        for line_str in open(label_dir + label_file).readlines():
+            
+            line = line_str.strip().split(' ')
             truncated = np.abs(float(line[1]))
             occluded = np.abs(float(line[2]))
 
@@ -184,7 +185,9 @@ def parse_annotation(label_dir, image_dir,mode = 'train',num_alpha_sectors=4,num
                        'dims': np.array([float(number) for number in line[8:11]]),
                        'new_alpha': new_alpha,
                        'alpha':float(line[3]),
-                       'rot_y': float(line[14])
+                       'rot_y': float(line[14]),
+                       'kitti_label': line_str,
+                       'loc_z': float(line[13])
                        }
 
                 # calculate the moving average of each obj dims.
@@ -367,22 +370,6 @@ def prepare_input_and_output(image_dir:str, train_inst, style:str = 'multibin'):
     else:
         raise Exception("No such orientation type: %s"%style)
 
-def ign_dim_handler(*args):
-    if len(args) == 3:
-        return args[0],args[2]
-    elif len(args) == 4:
-        return args[0],[args[2],args[3]]
-    elif len(args) == 1:
-        x = args[0]
-        if len(x)==3:
-            a,b,c = x
-            return a,c
-        if len(x)==4:
-            a,b,c,d = x
-            return a,[c,d]
-    else:
-        assert False,"dim handler failed!, please check inputs"
-
 def fp_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
@@ -405,8 +392,7 @@ class KittiGenerator(Sequence):
                  mode = "train", 
                  batch_size = 8,
                  orientation_type = "multibin",
-                 sectors = 4,
-                 output_modifier = ign_dim_handler):
+                 sectors = 4):
         self.label_dir = label_dir
         self.image_dir = image_dir
         self._sectors = sectors
@@ -416,18 +402,48 @@ class KittiGenerator(Sequence):
         
         if mode=='test':
             warnings.warn("testing mode has not been inplemented yet")
-        if mode=='val':
-            warnings.warn("validation mode has not been inplemented yet")
             
         self._clen = len(self.all_objs)  # number of objects
         self._keys = list(range(self._clen))  # list of all object ids
         np.random.shuffle(self._keys)
         self.epochs = 0
         self.orientation_type = orientation_type
-        self.output_modifier = output_modifier
 
     def __len__(self)->int:
         return len(self.all_objs) // self.batch_size
+    
+    def output_modifier(*args, **kwargs):
+        if kwargs.pop('mode') == 'train':
+            if len(args) == 3: # not multibin
+                   return args[0],args[2]
+            elif len(args) == 4:
+                return args[0],[args[2],args[3]]
+            elif len(args) == 1:
+                x = args[0]
+                if len(x)==3:
+                    a,b,c = x
+                    return a,c
+                if len(x)==4:
+                    a,b,c,d = x
+                    return a,[c,d]
+            else:
+                assert False,"dim handler failed!, please check inputs"
+        if kwargs.pop('mode') == 'val':
+            if len(args) == 3: # not multibin
+                   return args[0],args[2], kwargs.pop('obj_keys')
+            elif len(args) == 4:
+                return args[0],[args[2],args[3]], kwargs.pop('obj_keys')
+            elif len(args) == 1:
+                x = args[0]
+                if len(x)==3:
+                    a,b,c = x
+                    return a,c, kwargs.pop('obj_keys')
+                if len(x)==4:
+                    a,b,c,d = x
+                    return a,[c,d], kwargs.pop('obj_keys')
+            else:
+                assert False,"dim handler failed!, please check inputs"
+            
 
     def __getitem__(self, idx):
         l_bound = idx * self.batch_size  # start of key index
@@ -464,7 +480,7 @@ class KittiGenerator(Sequence):
                 d_batch[currt_inst, :] = dimension
                 o_batch[currt_inst, :] = orientation
                 c_batch[currt_inst, :] = confidence
-            return self.output_modifier(x_batch, d_batch, o_batch, c_batch)
+            return self.output_modifier(x_batch, d_batch, o_batch, c_batch, obj_keys=self._keys[l_bound:r_bound], mode=self.mode)
         elif self.orientation_type == "rot_y_sector" or self.orientation_type == "alpha_sector":
             s_batch = np.zeros((r_bound - l_bound, self._sectors))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -472,7 +488,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 s_batch[currt_inst, :] = sector
-            return self.output_modifier(x_batch,d_batch,s_batch)
+            return self.output_modifier(x_batch,d_batch,s_batch, obj_keys=self._keys[l_bound:r_bound], mode=self.mode)
         elif self.orientation_type =='tricosine':
             tc_batch = np.zeros((r_bound - l_bound, 3))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -480,7 +496,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 tc_batch[currt_inst, :] = tricos
-            return self.output_modifier(x_batch,d_batch,tc_batch)
+            return self.output_modifier(x_batch,d_batch,tc_batch, obj_keys=self._keys[l_bound:r_bound], mode=self.mode)
         elif self.orientation_type == "alpha" or self.orientation_type == 'rot_y':
             a_batch = np.zeros((r_bound - l_bound, 1))
             for currt_inst, key in enumerate(self._keys[l_bound:r_bound]):
@@ -488,7 +504,7 @@ class KittiGenerator(Sequence):
                 x_batch[currt_inst, :] = image
                 d_batch[currt_inst, :] = dimension
                 a_batch[currt_inst, :] = angle
-            return self.output_modifier(x_batch,d_batch,a_batch)
+            return self.output_modifier(x_batch,d_batch,a_batch, obj_keys=self._keys[l_bound:r_bound], mode=self.mode)
         else:
             raise Exception("Invalid Orientation Type")
             
