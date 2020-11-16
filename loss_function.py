@@ -9,10 +9,10 @@ def loss_alpha(y_true, y_pred):
 def loss_rot_y(y_true, y_pred):
     return tf.keras.losses.mean_squared_error(y_true, y_pred)
 
-def loss_alpha_sec(y_true, y_pred):
+def loss_alpha_sector(y_true, y_pred):
     return tf.keras.losses.categorical_crossentropy(y_true, y_pred)
 
-def loss_rot_y_sec(y_true, y_pred):
+def loss_rot_y_sector(y_true, y_pred):
     return tf.keras.losses.categorical_crossentropy(y_true, y_pred)
 
 def loss_multibin_orientation(y_true, y_pred):
@@ -31,3 +31,19 @@ loss_multibin = {'o_layer_output': loss_multibin_orientation,
 
 loss_weights = {'o_layer_output': 8.0,
                 'c_layer_output': 1.0}
+
+def loss_func(orientation):
+    if orientation == 'tricosine':
+        return loss_tricosine
+    elif orientation == 'alpha':
+        return loss_alpha
+    elif orientation == 'rot_y':
+        return loss_rot_y
+    elif orientation == 'alpha_sector':
+        return loss_alpha_sector
+    elif orientation == 'rot_y_sector':
+        return loss_rot_y_sector
+    elif orientation == 'multibin':
+        return loss_multibin
+    else:
+        raise Exception('Incorrect orientation type for loss function')

@@ -83,6 +83,10 @@ def tricosine_to_alpha_rad(sector_affinity, sectors=3):
     mean_alpha_rads = np.arctan2(sum_sin_alpha_rads, sum_cos_alpha_rads)
     return mean_alpha_rads
 
+def alpha2roty(alpha,loc):
+    x,y,z = loc
+    return alpha + np.arctan(x/z)
+
 def angle2sector(angle, n:int = 4):
     # make neg alpha angle positive
     if angle<0: 
@@ -102,6 +106,8 @@ def sector2angle(angle_sector, n:int = 4):
     new_alpha = idx * sector_size + center_offset
     if new_alpha > math.pi:
         alpha = new_alpha - math.tau
+    else:
+        alpha = new_alpha
     return alpha
 
 def qualityaware(distr_cats,ry_cats:int=4):

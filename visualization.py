@@ -122,7 +122,7 @@ def make_arrow(calibration, kitti_label, img, rot_y_pred, dim_pred=None):
 
     endpoint = make_endpoint(endpoint, center, dims, rot_y_pred)
     gt_endpoint = make_endpoint(gt_endpoint, center, dims, gt_rot_y)
-       
+    
     center = convert_to_2d(center, cam_to_img)
     endpoint = convert_to_2d(endpoint, cam_to_img)
     gt_endpoint = convert_to_2d(gt_endpoint, cam_to_img)

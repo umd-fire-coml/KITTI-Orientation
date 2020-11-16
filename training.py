@@ -94,7 +94,7 @@ if __name__=="__main__":
         model.load_weights(args.load_weight_dir)
         initial_epoch = int(args.load_weight_dir.split(".")[-2])
     else:
-        initial_epoch = 1
+        initial_epoch = 0
     print('Starting Training')
     start_time = time.time()
     history = model.fit(x = generator, epochs = num_epoch, verbose = 1,callbacks=[cp_callback], initial_epoch=initial_epoch)

@@ -4,7 +4,8 @@ import tensorflow as tf
 
 dataset_urls = {
     "training/image_2": "https://s3.eu-central-1.amazonaws.com/avg-kitti/data_object_image_2.zip",
-    "training/label_2": "https://s3.eu-central-1.amazonaws.com/avg-kitti/data_object_label_2.zip"
+    "training/label_2": "https://s3.eu-central-1.amazonaws.com/avg-kitti/data_object_label_2.zip",
+    "training/calib":   "https://s3.eu-central-1.amazonaws.com/avg-kitti/data_object_calib.zip"
 }
 
 parser = argparse.ArgumentParser(description = 'KITTI Dataset Checker')
