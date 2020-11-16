@@ -1,6 +1,7 @@
 dataset
 weights
 .ipynb_checkpoints/
+weights_small/
 __pycache__
 *.py[cod]
 *$py.class
