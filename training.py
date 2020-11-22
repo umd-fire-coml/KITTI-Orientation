@@ -6,7 +6,8 @@ from tensorflow.keras import Input, Model
 from loss_function import *
 import numpy as np
 import data_processing as dp
-import os, argparse, time, pickle
+import os, argparse, time
+from datetime import datetime
 
 # Processing argument
 parser = argparse.ArgumentParser(description='Training Model')
@@ -77,8 +78,14 @@ if __name__=="__main__":
     print('Loading generator')
     generator = dp.KittiGenerator(label_dir= data_label, image_dir= data_img,sectors = NUM_SECTOR, batch_size = BATCH_SIZE,orientation_type = args.orientation )
     # Model callback config
-    checkpoint_path = os.path.join(weight_dir, str(orientation) +'_model.{epoch:02d}-{loss:.2f}.h5') # tensorboard
+    checkpoint_path = os.path.join(weight_dir, str(orientation) +'_model.{epoch:02d}-{loss:.4f}.h5')
+
+    # tensorboard
+    log_dir = os.path.join(weight_dir,"logs/scalars/", datetime.now().strftime("%Y%m%d-%H%M%S"))
+
+    tb_callback =tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path, save_weights_only=True,verbose=1)
+    early_stop_callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=5)
 
     # Building Model
     inputs = Input(shape=(224, 224, 3))
@@ -88,7 +95,7 @@ if __name__=="__main__":
     model.compile(loss=loss_func(orientation), optimizer='adam')
     print('Starting Training')
     start_time = time.time()
-    history = model.fit(x = generator, epochs = num_epoch, verbose = 1,callbacks=[cp_callback])
+    history = model.fit(x = generator, epochs = num_epoch, verbose = 1,callbacks=[tb_callback, cp_callback])
 
     with open(os.path.join(weight_dir, 'training_hist.txt'), 'w') as f:
         f.write(str(history.history))
