@@ -77,7 +77,7 @@ if __name__=="__main__":
     print('Loading generator')
     generator = dp.KittiGenerator(label_dir= data_label, image_dir= data_img,sectors = NUM_SECTOR, batch_size = BATCH_SIZE,orientation_type = args.orientation )
     # Model callback config
-    checkpoint_path = os.path.join(weight_dir, str(orientation) +'_model.{epoch:02d}.h5')
+    checkpoint_path = os.path.join(weight_dir, str(orientation) +'_model.{epoch:02d}-{loss:.2f}.h5')
     cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path, save_weights_only=True,verbose=1)
 
     # Building Model
