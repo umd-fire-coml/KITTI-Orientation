@@ -389,25 +389,34 @@ class KittiGenerator(Sequence):
     # update to remove kwargs
     def __init__(self, label_dir:str,
                  image_dir:str, 
-                 mode = "train", 
-                 batch_size = 8,
-                 orientation_type = "multibin",
-                 sectors = 4):
+                 mode:str = "train", 
+                 batch_size:int = 8,
+                 orientation_type:str = "multibin",
+                 sectors:int = 4,
+                 val_split:float = 0.0):
         self.label_dir = label_dir
         self.image_dir = image_dir
         self._sectors = sectors
         self.all_objs = parse_annotation(label_dir,image_dir,mode,self._sectors,self._sectors)
         self.mode = mode
         self.batch_size = batch_size
-        
-        if mode=='test':
-            warnings.warn("testing mode has not been inplemented yet")
-            
         self._clen = len(self.all_objs)  # number of objects
         self._keys = list(range(self._clen))  # list of all object ids
         np.random.shuffle(self._keys)
+        if val_split>0:
+            assert val_split<1
+            cutoff = val_split*self._clen
+            if self.mode == "train":
+                self._keys = self._keys[cutoff:]
+                self._clen = len(self._keys)
+            elif self.mode == "val":
+                self._keys = self._keys[:cutoff]
+                self._clen = len(self._keys)
+            else:
+                assert False, "invalid mode"
         self.epochs = 0
         self.orientation_type = orientation_type
+        self.saved_split = None
 
     def __len__(self)->int:
         return len(self.all_objs) // self.batch_size
@@ -428,7 +437,7 @@ class KittiGenerator(Sequence):
                     return a,[c,d]
             else:
                 assert False,"dim handler failed!, please check inputs"
-        elif self.mode == 'val':
+        elif self.mode == 'check':
             if len(args) == 3: # not multibin
                    return args[0],args[2], kwargs['obj_keys']
             elif len(args) == 4:
@@ -519,7 +528,6 @@ class KittiGenerator(Sequence):
 
     def __str__(self):
         return "KittiDatagenerator:<size %d,image_dir:%s,label_dir:%s,epoch:%d>"%(len(self),self.image_dir,self.label_dir,self.epochs)
-
 
     def to_tfrecord(self, path:str = './records/')->str:
         writer_path = '%s%s-%s-.tfrec'%(path,self.mode,datetime.now().strftime('%Y%m%d%H%M%S'))
