@@ -405,7 +405,7 @@ class KittiGenerator(Sequence):
         np.random.shuffle(self._keys)
         if val_split>0:
             assert val_split<1
-            cutoff = val_split*self._clen
+            cutoff = int(val_split*self._clen)
             if self.mode == "train":
                 self._keys = self._keys[cutoff:]
                 self._clen = len(self._keys)
