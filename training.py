@@ -76,9 +76,10 @@ if __name__=="__main__":
     print('Training on orientation type:[' ,args.orientation,'] with batch_size =',BATCH_SIZE, 'and num_sector is =',NUM_SECTOR)    
     # Generator config
     print('Loading generator')
-    generator = dp.KittiGenerator(label_dir= data_label, image_dir= data_img,sectors = NUM_SECTOR, batch_size = BATCH_SIZE,orientation_type = args.orientation )
+    generator = dp.KittiGenerator(label_dir= data_label, image_dir= data_img,sectors = NUM_SECTOR, batch_size = BATCH_SIZE,orientation_type = args.orientation,mode = 'train',val_split=0.2 )
+    validation = dp.KittiGenerator(label_dir= data_label, image_dir= data_img,sectors = NUM_SECTOR, batch_size = BATCH_SIZE,orientation_type = args.orientation,mode = 'val',val_split=0.2 )
     # Model callback config
-    checkpoint_path = os.path.join(weight_dir, str(orientation) +'_model.{epoch:02d}-{loss:.4f}.h5')
+    checkpoint_path = os.path.join(weight_dir, str(orientation) +'_model.{epoch:02d}-{loss:.4f}-{val_loss:.4f}.h5')
 
     # tensorboard
     log_dir = os.path.join(weight_dir,"logs/scalars/", datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -95,7 +96,7 @@ if __name__=="__main__":
     model.compile(loss=loss_func(orientation), optimizer='adam')
     print('Starting Training')
     start_time = time.time()
-    history = model.fit(x = generator, epochs = num_epoch, verbose = 1,callbacks=[tb_callback, cp_callback])
+    history = model.fit(x = generator, epochs = num_epoch, verbose = 1,validation_data= validation,callbacks=[tb_callback, cp_callback])
 
     with open(os.path.join(weight_dir, 'training_hist.txt'), 'w') as f:
         f.write(str(history.history))
