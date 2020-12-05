@@ -422,7 +422,7 @@ class KittiGenerator(Sequence):
         return len(self.all_objs) // self.batch_size
     
     def output_modifier(self,*args, **kwargs):
-        if self.mode == 'train':
+        if self.mode == 'train' or self.mode =='val':
             if len(args) == 3: # not multibin
                    return args[0],args[2]
             elif len(args) == 4:
