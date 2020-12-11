@@ -1,5 +1,6 @@
 dataset
 weights
+env_list.txt
 .ipynb_checkpoints/
 weights_small/
 __pycache__

@@ -39,23 +39,6 @@ def timer(start,end):
     minutes, seconds = divmod(rem, 60)
     print("{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds))
 
-def loss_func(orientation):
-    if orientation == 'tricosine':
-        return loss_tricosine
-    elif orientation == 'alpha':
-        return loss_alpha
-    elif orientation == 'rot_y':
-        return loss_rot_y
-    elif orientation == 'alpha_sector':
-        return loss_alpha_sector
-    elif orientation == 'rot_y_sector':
-        return loss_rot_y_sector
-    elif orientation == 'multibin':
-        return loss_multibin
-    else:
-        raise Exception('Incorrect orientation type for loss function')
-
-
 if __name__=="__main__":
     BATCH_SIZE = args.BATCH_SIZE 
     NUM_SECTOR = args.NUM_SECTOR

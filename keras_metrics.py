@@ -3,10 +3,8 @@ import numpy as np
 
 from tensorflow.keras import backend as K
 from data_processing import tricosine_to_alpha_rad
-# from data_processing import alpha_sectors_to_alpha_rad  # <- Not not created
-# from data_processing import roty_sectors_to_alpha_rad   # <- Not not created
-# from data_processing import multibin_to_alpha_rad       # <- Not not created
-# from data_processing import roty_to_alpha_rad           # <- Not not created
+from data_processing import sector2angle  
+from data_processing import multibin_to_alpha_rad  
 
 """
 Usage:
@@ -49,8 +47,8 @@ def aos_orientation_to_alpha_rad(tensor, orientation_type):
             arr_type = arr.dtype
             if orientation_type == 'multibin':      val = multibin_to_alpha_rad(arr) # (1x2) -> (1x0) shape
             if orientation_type == 'tricosine':     val = tricosine_to_alpha_rad(arr) # (1x3) -> (1x0) shape
-            if orientation_type == 'rot_y_sectors': val = roty_sectors_to_alpha_rad(arr) # (1xSectors) -> (1x0) shape
-            if orientation_type == 'alpha_sectors': val = alpha_sectors_to_alpha_rad(arr) # (1xSectors) -> (1x0) shape
+            if orientation_type == 'rot_y_sectors': val = sector2angle(arr,len(arr)) # (1xSectors) -> (1x0) shape
+            if orientation_type == 'alpha_sectors': val = sector2angle(arr,len(arr)) # (1xSectors) -> (1x0) shape
             val = np.asarray(val, dtype=arr_type)
             return tf.constant(val)
     return recursive_aos(tensor)
@@ -64,7 +62,7 @@ def aos_roty_to_alpha_rad(tensor):
     else:
         # expecting a (1 x 0) tensor of 1 rot_y value
         arr = np.asarray(tensor)
-        val = roty_to_alpha_rad(arr)
+        val = sector2angle(arr,len(arr))
         return tf.constant(val)
 
 """

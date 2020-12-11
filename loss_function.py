@@ -16,6 +16,19 @@ def loss_rot_y_sector(y_true, y_pred):
     return tf.keras.losses.categorical_crossentropy(y_true, y_pred)
 
 def loss_multibin_orientation(y_true, y_pred):
+    print("""
+    
+
+    MULTIBIN PRINTOUT
+    -----------------
+    y_true: {}
+
+    y_pred: {}
+    -----------------
+    END
+
+
+    """.format(y_true,y_pred))
     anchors = tf.reduce_sum(tf.square(y_true), axis=2)
     anchors = tf.greater(anchors, tf.constant(0.5))
     anchors = tf.reduce_sum(tf.cast(anchors, tf.float32), 1)
