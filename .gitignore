@@ -2,7 +2,13 @@ dataset
 weights
 .ipynb_checkpoints/
 weights_small/
+dataset/
+records/
 __pycache__
 *.py[cod]
 *$py.class
 *.swp
+*.log
+.idea/*
+.vscode
+*.tfrec
