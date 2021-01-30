@@ -166,7 +166,6 @@ def parse_annotation(label_dir, image_dir, mode='train', num_alpha_sectors=4, nu
         image_file = label_file.replace('txt', 'png')
 
         for line_str in open(label_dir + label_file).readlines():
-
             line = line_str.strip().split(' ')
             truncated = np.abs(float(line[1]))
             occluded = np.abs(float(line[2]))
@@ -378,7 +377,6 @@ def prepare_input_and_output(image_dir: str, train_inst, style: str = 'multibin'
             return img, train_inst['dims'], train_inst['%s_flipped' % style]
     else:
         raise Exception("No such orientation type: %s" % style)
-
 
 def fp_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
