@@ -8,6 +8,7 @@ import numpy as np
 import data_processing as dp
 import os, argparse, time
 from datetime import datetime
+from keras_metrics import kitti_aos
 
 # Processing argument
 parser = argparse.ArgumentParser(description='Training Model')
@@ -78,12 +79,11 @@ if __name__=="__main__":
     print('Loading generator')
     generator = dp.KittiGenerator(label_dir= data_label, image_dir= data_img,sectors = NUM_SECTOR, batch_size = BATCH_SIZE,orientation_type = args.orientation,mode = 'train',val_split=0.2 )
     validation = dp.KittiGenerator(label_dir= data_label, image_dir= data_img,sectors = NUM_SECTOR, batch_size = BATCH_SIZE,orientation_type = args.orientation,mode = 'val',val_split=0.2 )
-    # Model callback config
+    # model callback config
     checkpoint_path = os.path.join(weight_dir, str(orientation) +'_model.{epoch:02d}-{loss:.4f}-{val_loss:.4f}.h5')
-
     # tensorboard
     log_dir = os.path.join(weight_dir,"logs/scalars/", datetime.now().strftime("%Y%m%d-%H%M%S"))
-
+    # tensorboard callback, checkpoint callback, early stop callback and accuracy callback
     tb_callback =tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path, save_weights_only=True,verbose=1)
     early_stop_callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=5)
@@ -93,10 +93,11 @@ if __name__=="__main__":
     x = Xception_model(inputs, pooling='avg')
     x = add_output_layers(orientation, x, NUM_SECTOR,NUM_BIN )
     model = Model(inputs=inputs, outputs=x)
-    model.compile(loss=loss_func(orientation), optimizer='adam')
+    model.compile(loss=loss_func(orientation), optimizer='adam', metrics=[kitti_aos(str(orientation))], run_eagerly=True)
+
     print('Starting Training')
     start_time = time.time()
-    history = model.fit(x = generator, epochs = num_epoch, verbose = 1,validation_data= validation,callbacks=[tb_callback, cp_callback])
+    history = model.fit(x=generator, epochs=num_epoch, verbose=1, validation_data=validation, callbacks=[tb_callback, cp_callback,early_stop_callback])
 
     with open(os.path.join(weight_dir, 'training_hist.txt'), 'w') as f:
         f.write(str(history.history))
