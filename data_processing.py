@@ -43,7 +43,7 @@ def alpha_rad_to_tricoine(alpha_rad, sectors=3):
 
 
 def tricosine_to_alpha_rad(sector_affinity, sectors=3):
-    sector_affinity = np.tanh(sector_affinity) # compress values between -1 and 1 for acos.
+    sector_affinity = np.clip(sector_affinity, -1.0, 1.0) # clip values between -1 and 1 for acos.
     # calculate center sector offset
     SECTOR_WIDTH = math.tau / sectors
     center_sector_id = np.argmax(sector_affinity)
