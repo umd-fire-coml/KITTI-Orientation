@@ -18,7 +18,7 @@ def kitti_aos(orientation_type):
         alpha_pred = aos_convert_to_alpha(y_pred, orientation_type)
         alpha_true = aos_convert_to_alpha(y_true, orientation_type) # needed? or y_true (gt) always alpha?
         alpha_delta = alpha_true - alpha_pred
-        normalized  = 0.5 * K.cos(alpha_delta + 1) 
+        normalized  = 0.5 * (K.cos(alpha_delta) + 1)
         val         = K.sum(normalized)
 
         return val
