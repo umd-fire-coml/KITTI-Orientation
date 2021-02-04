@@ -45,7 +45,7 @@ def alpha_rad_to_tricoine(alpha_rad, sectors=3):
 
 
 def tricosine_to_alpha_rad(sector_affinity, sectors=3):
-    sector_affinity = np.tanh(sector_affinity)  # compress values between -1 and 1 for acos.
+    sector_affinity = np.clip(sector_affinity, -1.0, 1.0) # clip values between -1 and 1 for acos.
     # calculate center sector offset
     SECTOR_WIDTH = math.tau / sectors
     center_sector_id = np.argmax(sector_affinity)
@@ -86,6 +86,9 @@ def tricosine_to_alpha_rad(sector_affinity, sectors=3):
     mean_alpha_rads = np.arctan2(sum_sin_alpha_rads, sum_cos_alpha_rads)
     return mean_alpha_rads
 
+def alpha2roty(alpha,loc):
+    x,y,z = loc
+    return alpha + np.arctan(x/z)
 
 def angle2sector(angle, n: int = 4):
     # make neg alpha angle positive
@@ -99,14 +102,16 @@ def angle2sector(angle, n: int = 4):
     return arr
 
 
-def sector2angle(angle_sector, n: int = 4):
+def sector2angle(angle_sector, n:int = 4):
     idx = np.argmax(angle_sector)
     assert idx in range(n)
-    sector_size = math.tau / n
-    center_offset = sector_size / 2
+    sector_size = math.tau/n
+    center_offset = sector_size/2
     new_alpha = idx * sector_size + center_offset
     if new_alpha > math.pi:
-        alpha = new_alpha - math.tau
+        alpha = new_alpha - math.taus
+    else:
+        alpha = new_alpha
     return alpha
 
 
@@ -332,16 +337,6 @@ def prepare_input_and_output(image_dir: str, train_inst, style: str = 'multibin'
     # crop the image using the obj bounding box, deepcopy to prevent memory sharing
     img = copy.deepcopy(img[ymin:ymax + 1, xmin:xmax + 1]).astype(np.float32)
 
-    # re-color the image
-    # img += np.random.randint(-2, 3, img.shape).astype('float32')
-    # t  = [np.random.uniform()]
-    # t += [np.random.uniform()]
-    # t += [np.random.uniform()]
-    # t = np.array(t)
-
-    # img = img * (1 + t)
-    # img = img / (255. * 2.)
-
     # flip the image by random chance
     flip = np.random.binomial(1, .5)
     # flip image horizonatally
@@ -556,6 +551,57 @@ class KittiGenerator(Sequence):
                 example_proto = tf.train.Example(features=tf.train.Features(feature=feature))
                 writer.write(example_proto.SerializeToString())
         return writer_path
+
+
+def multibin_to_alpha_rad(multbins_vals, num_bins: int = 2):
+    # multbins_vals = [[[angle, angle],[angle, angle]]
+    #                  [conf,   conf]]
+
+    # prediction = [[DIMENSIONS],
+    #               [[[cos,sin],[cos,sin]]], #orientation
+    #               [[conf,conf]]            #confidence
+    # max_anc = np.argmax(prediction[2][0])
+    # anchors = prediction[1][0][max_anc]
+    # if anchors[1] > 0:
+    #     angle_offset = np.arccos(anchors[0])
+    # else:
+    #     angle_offset = -np.arccos(anchors[0])
+
+    # [
+    #     [[cos,sin],[cos,sin]],
+    #     [[cos,sin],[cos,sin]],
+    #     [[cos,sin],[cos,sin]],
+    #     ...
+    # ]
+
+    # [
+    #     [conf, conf],
+    #     [conf, conf],
+    #     [conf, conf],
+    #     ...
+    # ]
+
+    # Transform regressed angle
+    max_anc = np.argmax(multbins_vals[1])  # get index of max confidence
+    anchors = multbins_vals[0][max_anc]
+
+    # why do we need to negative the arccos()
+    # -
+    if anchors[1] > 0:
+        angle_offset = np.arccos(anchors[0])
+    else:
+        angle_offset = -np.arccos(anchors[0])
+
+    wedge = 2. * np.pi / num_bins
+    angle_offset = angle_offset + max_anc * wedge
+    angle_offset = angle_offset % (2. * np.pi)
+
+    angle_offset = angle_offset - np.pi / 2
+    if angle_offset > np.pi:
+        angle_offset = angle_offset - (2. * np.pi)
+
+    return angle_offset
+
 
 
 if __name__ == "__main__":
