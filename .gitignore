@@ -1,4 +1,6 @@
-dataset/
+dataset
+weights
+.ipynb_checkpoints
 records/
 __pycache__
 *.py[cod]
