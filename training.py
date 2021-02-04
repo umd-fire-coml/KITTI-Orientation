@@ -97,7 +97,7 @@ if __name__=="__main__":
 
     print('Starting Training')
     start_time = time.time()
-    history = model.fit(x=generator, epochs=num_epoch, verbose=1, validation_data=validation, callbacks=[tb_callback, cp_callback,early_stop_callback])
+    history = model.fit(x=generator, epochs=num_epoch, verbose=1, validation_data=validation, callbacks=[tb_callback, cp_callback, early_stop_callback])
 
     with open(os.path.join(weight_dir, 'training_hist.txt'), 'w') as f:
         f.write(str(history.history))
