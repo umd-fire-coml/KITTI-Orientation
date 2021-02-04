@@ -1,4 +1,4 @@
-name: KITTI-Orientation
+name: KITTI-Orientation2
 channels:
   - defaults
 dependencies:

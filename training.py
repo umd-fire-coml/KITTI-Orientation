@@ -8,6 +8,7 @@ from loss_function import *
 import numpy as np
 import data_processing as dp
 import os, argparse, time, pickle
+from keras_metrics import kitti_aos
 
 # Processing argument
 parser = argparse.ArgumentParser(description='Training Model')
@@ -71,7 +72,7 @@ if __name__=="__main__":
     x = Xception_model(inputs, pooling='avg')
     x = add_output_layers(orientation, x, NUM_SECTOR,NUM_BIN )
     model = Model(inputs=inputs, outputs=x)
-    model.compile(loss=loss_func(orientation), optimizer='adam')
+    model.compile(loss=loss_func(orientation), optimizer='adam',metrics=[kitti_aos(args.orientation)],run_eagerly=True)
     if args.load_weight_dir:
         print("Loading weights from: {}".format(args.load_weight_dir))
         model.load_weights(args.load_weight_dir)

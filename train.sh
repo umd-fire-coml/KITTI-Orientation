@@ -1,2 +1,2 @@
-python training.py multibin --num_multibin 2 --epoch 5 --batch_size 4 --weight_dir './weights/multibin' --kitti_dir "./dataset_small"
+python training.py tricosine --num_multibin 2 --epoch 5 --batch_size 4 --weight_dir './weights/testing_accuracy' --kitti_dir "./dataset_small"
 # new-item -itemtype symboliclink -path . -name 'dataset' -value 'E:/School/Fall 2020/KITTI_data/dataset/'
