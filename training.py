@@ -86,7 +86,7 @@ if __name__=="__main__":
     # tensorboard callback, checkpoint callback, early stop callback and accuracy callback
     tb_callback =tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path, save_weights_only=True,verbose=1)
-    early_stop_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
+    early_stop_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=20)
 
     # Building Model
     inputs = Input(shape=(224, 224, 3))
