@@ -3,8 +3,8 @@ import numpy as np
 
 from tensorflow.keras import backend as K
 from data_processing import tricosine_to_alpha_rad
-from data_processing import sector2angle
-from data_processing import multibin_to_alpha_rad
+from data_processing import sector2angle  
+from data_processing import multibin_to_alpha_rad  
 
 """
 Usage:
@@ -54,7 +54,7 @@ def aos_orientation_to_alpha_rad(tensor, orientation_type):
     return recursive_aos(tensor)
 
 def aos_roty_to_alpha_rad(tensor):
-    # recursively calls until arrays of 0 dimension (single values) are found, then operates
+    # recursively calls until arrays of 0 dimension (single values) are found, then operates 
 
     if K.ndim(tensor) > 0: # (0 for (1x0) shape)
         return tf.map_fn(aos_roty_to_alpha_rad, tensor)
@@ -64,3 +64,57 @@ def aos_roty_to_alpha_rad(tensor):
         arr = np.asarray(tensor)
         val = sector2angle(arr,len(arr))
         return tf.constant(val)
+
+"""
+This works!!!
+Model code after THIS!
+---------------------
+def my_elementwise_func(x):
+    # expects an array
+    return 3 + K.sum(x)
+
+def recursive_map(inputs, str_in):
+    def rec_map(inputs):
+        print(K.ndim(inputs), inputs, str_in) # printouts @K.ndim>0 below
+        if K.ndim(inputs) > 1:# change to fit each type of orientation (1 for tricosine?)
+            return K.map_fn(rec_map,inputs)
+            # return tf.stack([recursive_map(inputs, str_in) for inputs in tf.unstack(inputs)],axis=0)
+        else:
+            return my_elementwise_func(inputs)
+    return rec_map(inputs)
+
+inputs = tf.stack([2*K.eye(4), 3*K.eye(4), 4*K.eye(4)])
+result = recursive_map(inputs, 69)  
+
+---------------------------
+--- PRINTOUTS --- BELOW ---
+---------------------------
+
+format: #DIMs TENSOR
+
+3 tf.Tensor(
+    [[[1. 0. 0. 0.]
+    [0. 1. 0. 0.]
+    [0. 0. 1. 0.]
+    [0. 0. 0. 1.]]
+
+    [[1. 0. 0. 0.]
+    [0. 1. 0. 0.]
+    [0. 0. 1. 0.]
+    [0. 0. 0. 1.]]
+
+    [[1. 0. 0. 0.]
+    [0. 1. 0. 0.]
+    [0. 0. 1. 0.]
+    [0. 0. 0. 1.]]], shape=(3, 4, 4), dtype=float32)
+
+2 tf.Tensor(
+    [[1. 0. 0. 0.]
+    [0. 1. 0. 0.]
+    [0. 0. 1. 0.]
+    [0. 0. 0. 1.]], shape=(4, 4), dtype=float32)
+
+1 tf.Tensor([1. 0. 0. 0.], shape=(4,), dtype=float32)
+
+0 tf.Tensor(1.0, shape=(), dtype=float32)
+"""
