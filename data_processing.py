@@ -10,6 +10,7 @@ import warnings
 from pathlib2 import Path
 from datetime import datetime
 from tqdm import tqdm
+from orientation_converters import angle_rad_to_trisector_affinity, trisector_affinity_to_angle_rad
 
 BIN, OVERLAP = 2, 0.1
 NORM_H, NORM_W = 224, 224
@@ -21,70 +22,9 @@ VIEW_ANGLE_TOTAL_X = 1.4835298642
 VIEW_ANGLE_TOTAL_Y = 0.55850536064
 
 
-# make sure that math.tau isn't causint issues
-def alpha_rad_to_tricoine(alpha_rad, sectors=3):
-    SECTOR_WIDTH = math.tau / sectors
-    sector_affinity = np.full((sectors,), -1.0)
-    # calculate the center sector affinity
-    center_sector_id = alpha_rad // SECTOR_WIDTH
-    center_sector_offset = (SECTOR_WIDTH / 2) - (alpha_rad % SECTOR_WIDTH)
-    center_sector_affinity = math.cos(center_sector_offset)
-    sector_affinity[int(center_sector_id)] = center_sector_affinity
-    # calculate the left sector affinity
-    l_sector_id = (center_sector_id - 1) % sectors  # if -1 then we get 2
-    l_sector_offset = (alpha_rad % SECTOR_WIDTH) + (SECTOR_WIDTH / 2)
-    l_sector_affinity = math.cos(l_sector_offset)
-    sector_affinity[int(l_sector_id)] = l_sector_affinity
-    # calculate the left sector affinity
-    r_sector_id = (center_sector_id + 1) % sectors
-    r_sector_offset = (SECTOR_WIDTH - (alpha_rad %
-                                       SECTOR_WIDTH)) + (SECTOR_WIDTH / 2)
-    r_sector_affinity = math.cos(r_sector_offset)
-    sector_affinity[int(r_sector_id)] = r_sector_affinity
-    return sector_affinity
-
-
-def tricosine_to_alpha_rad(sector_affinity, sectors=3):
-    sector_affinity = np.clip(sector_affinity, -1.0, 1.0) # clip values between -1 and 1 for acos.
-    # calculate center sector offset
-    SECTOR_WIDTH = math.tau / sectors
-    center_sector_id = np.argmax(sector_affinity)
-    center_sector_affinity = sector_affinity[center_sector_id]
-    center_sector_offset = math.acos(center_sector_affinity)
-
-    # calculate left sector offset
-    l_sector_id = (center_sector_id - 1) % sectors
-    l_sector_affinity = sector_affinity[l_sector_id]
-    l_sector_offset = math.acos(l_sector_affinity)
-
-    # calculate right sector offset
-    r_sector_id = (center_sector_id + 1) % sectors
-    r_sector_affinity = sector_affinity[r_sector_id]
-    r_sector_offset = math.acos(r_sector_affinity)
-
-    # refine down to the angle
-    alpha_rad_from_center_sector = center_sector_id * \
-                                   SECTOR_WIDTH + (SECTOR_WIDTH / 2)  # middle of center
-    # calculuate angle from center sector (based on direction signal)
-    if l_sector_offset < r_sector_offset:
-        alpha_rad_from_center_sector = (
-                                               alpha_rad_from_center_sector - center_sector_offset) % math.tau
-    elif l_sector_offset > r_sector_offset:
-        alpha_rad_from_center_sector = (
-                                               alpha_rad_from_center_sector + center_sector_offset) % math.tau
-    # calculuate angle from left sector
-    alpha_rad_from_l_sector = (
-                                      l_sector_id * SECTOR_WIDTH + (SECTOR_WIDTH / 2) + l_sector_offset) % math.tau
-    # calculuate angle from right sector
-    alpha_rad_from_r_sector = (
-                                      r_sector_id * SECTOR_WIDTH + (SECTOR_WIDTH / 2) - r_sector_offset) % math.tau
-    alpha_rads = [alpha_rad_from_center_sector,
-                  alpha_rad_from_l_sector, alpha_rad_from_r_sector]
-    # calculuate the mean angle
-    sum_sin_alpha_rads = np.sum(np.sin(alpha_rads))
-    sum_cos_alpha_rads = np.sum(np.cos(alpha_rads))
-    mean_alpha_rads = np.arctan2(sum_sin_alpha_rads, sum_cos_alpha_rads)
-    return mean_alpha_rads
+def tricosine_to_alpha_rad(sector_affinity):
+    ```DeprecationWarning: use trisector_affinity_to_angle_rad instead```
+    return trisector_affinity_to_angle_rad(sector_affinity)
 
 def alpha2roty(alpha,loc):
     x,y,z = loc
@@ -242,8 +182,7 @@ def parse_annotation(label_dir, image_dir, mode='train', num_alpha_sectors=4, nu
         obj['multibin_confidence'] = confidence.astype(NUMPY_TYPE)
 
         # add our implementation here
-        obj['tricosine'] = alpha_rad_to_tricoine(
-            obj['new_alpha']).astype(NUMPY_TYPE)
+        obj['tricosine'] = angle_rad_to_trisector_affinity(obj['new_alpha']).astype(NUMPY_TYPE)
         obj['alpha_sector'] = angle2sector(obj['new_alpha'], num_alpha_sectors)
         obj['rot_y_sector'] = angle2sector(obj['new_alpha'], num_rot_y_sectors)
 
@@ -262,8 +201,8 @@ def parse_annotation(label_dir, image_dir, mode='train', num_alpha_sectors=4, nu
         obj['multibin_orientation_flipped'] = orientation.astype(NUMPY_TYPE)
         obj['multibin_confidence_flipped'] = confidence.astype(NUMPY_TYPE)
         # add our implementation here
-        obj['tricosine_flipped'] = alpha_rad_to_tricoine(
-            2. * np.pi - obj['new_alpha']).astype(NUMPY_TYPE)
+        obj['tricosine_flipped'] = trisector_affinity_to_angle_rad(
+            math.tau - obj['new_alpha']).astype(NUMPY_TYPE)
         obj['alpha_sector_flipped'] = angle2sector(2. * np.pi - obj['new_alpha'], num_alpha_sectors)
         obj['rot_y_sector_flipped'] = angle2sector(2. * np.pi - obj['new_alpha'], num_rot_y_sectors)
         center = ((obj['xmin'] + obj['xmax']) / 2, (obj['ymin'] + obj['ymax']) / 2)
