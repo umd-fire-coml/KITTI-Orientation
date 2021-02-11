@@ -23,7 +23,7 @@ VIEW_ANGLE_TOTAL_Y = 0.55850536064
 
 
 def tricosine_to_alpha_rad(sector_affinity):
-    ```DeprecationWarning: use trisector_affinity_to_angle_rad instead```
+    '''DeprecationWarning: use trisector_affinity_to_angle_rad instead'''
     return trisector_affinity_to_angle_rad(sector_affinity)
 
 def alpha2roty(alpha,loc):
