@@ -141,3 +141,5 @@ def trisector_affinity_to_angle_rad(trisector_affinity, allow_negative_pi=False)
     else:
         return mean_angle % math.tau
 
+def alpha_to_rot_y(alpha, loc_x, loc_z):
+    return alpha + np.arctan(loc_x/loc_z)

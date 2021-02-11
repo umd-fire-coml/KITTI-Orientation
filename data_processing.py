@@ -23,26 +23,11 @@ VIEW_ANGLE_TOTAL_Y = 0.55850536064
 
 
 def tricosine_to_alpha_rad(sector_affinity):
-    '''DeprecationWarning: use trisector_affinity_to_angle_rad instead'''
+    '''DeprecationWarning: use orientation_converters.trisector_affinity_to_angle_rad instead'''
     return trisector_affinity_to_angle_rad(sector_affinity)
 
-def alpha2roty(alpha,loc):
-    x,y,z = loc
-    return alpha + np.arctan(x/z)
-
-def angle2sector(angle, n: int = 4):
-    # make neg alpha angle positive
-    if angle < 0:
-        angle += math.tau
-    sector_size = math.tau / n
-    idx = int(angle / sector_size)
-    assert idx in range(n)
-    arr = np.zeros(n).astype(NUMPY_TYPE)
-    arr[idx] = 1.0
-    return arr
-
-
 def sector2angle(angle_sector, n:int = 4):
+    '''DeprecationWarning: do not use this anymore'''
     idx = np.argmax(angle_sector)
     assert idx in range(n)
     sector_size = math.tau/n
@@ -53,31 +38,6 @@ def sector2angle(angle_sector, n:int = 4):
     else:
         alpha = new_alpha
     return alpha
-
-
-def qualityaware(distr_cats, ry_cats: int = 4):
-    # Spread out the value for quality-aware loss
-    section_number = np.where(np.isclose(distr_cats, 1.0))[0]
-    cat_num = (int(ry_cats - 2) / 2)  # Remove the 1 and 0 sector, and divide by 2
-    #
-    left = section_number - 1
-    right = section_number + 1
-    if right == ry_cats:
-        right = 0
-    if left == -1:
-        left = ry_cats - 1
-
-    for i in range(int(cat_num)):
-        distr_cats[right] = 1 - 1 / (cat_num + 1) * (i + 1)
-        distr_cats[left] = 1 - 1 / (cat_num + 1) * (i + 1)
-        right += 1
-        left -= 1
-        if right == ry_cats:
-            right = 0
-        if left == -1:
-            left = ry_cats - 1
-    return distr_cats
-
 
 def compute_anchors(angle):
     # angle is the new_alpha angle between 0 and 2pi
@@ -183,8 +143,6 @@ def parse_annotation(label_dir, image_dir, mode='train', num_alpha_sectors=4, nu
 
         # add our implementation here
         obj['tricosine'] = angle_rad_to_trisector_affinity(obj['new_alpha']).astype(NUMPY_TYPE)
-        obj['alpha_sector'] = angle2sector(obj['new_alpha'], num_alpha_sectors)
-        obj['rot_y_sector'] = angle2sector(obj['new_alpha'], num_rot_y_sectors)
 
         # Get orientation and confidence values for flip
         orientation = np.zeros((BIN, 2))
@@ -203,12 +161,8 @@ def parse_annotation(label_dir, image_dir, mode='train', num_alpha_sectors=4, nu
         # add our implementation here
         obj['tricosine_flipped'] = trisector_affinity_to_angle_rad(
             math.tau - obj['new_alpha']).astype(NUMPY_TYPE)
-        obj['alpha_sector_flipped'] = angle2sector(2. * np.pi - obj['new_alpha'], num_alpha_sectors)
-        obj['rot_y_sector_flipped'] = angle2sector(2. * np.pi - obj['new_alpha'], num_rot_y_sectors)
         center = ((obj['xmin'] + obj['xmax']) / 2, (obj['ymin'] + obj['ymax']) / 2)
         obj['view_angle'] = center[0] / NORM_W * VIEW_ANGLE_TOTAL_X - (VIEW_ANGLE_TOTAL_X / 2)
-        obj['distr'] = qualityaware(obj['rot_y_sector'], num_rot_y_sectors)
-        obj['distr_flipped'] = qualityaware(obj['rot_y_sector_flipped'], num_rot_y_sectors)
         obj['orient_flipped'] = orientation
         obj['conf_flipped'] = confidence
 
