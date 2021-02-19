@@ -25,14 +25,11 @@ def kitti_aos(orientation_type):
     return metric
 
 def aos_convert_to_alpha(tensor, orientation_type):
-    if orientation_type == 'tricosine':     return aos_orientation_to_alpha_rad(tensor, 'tricosine')
-    if orientation_type == 'rot_y_sectors': return aos_orientation_to_alpha_rad(tensor, 'rot_y_sectors')
-    if orientation_type == 'alpha_sectors': return aos_orientation_to_alpha_rad(tensor, 'alpha_sectors')
-    if orientation_type == 'multibin':      return aos_orientation_to_alpha_rad(tensor, 'multibin')
-    # if orientation_type == 'rot_y':         return K.map_fun(roty_to_alpha_rad, tensor)  # OLD
-    else:
+    if orientation_type == 'rot_y' or orientation_type == 'alpha':
         # if orientation type is already 'alpha' or 'rot_y', no need to change
         return tensor
+    else:
+        aos_orientation_to_alpha_rad(tensor, orientation_type)
 
 def aos_orientation_to_alpha_rad(tensor, orientation_type):
     def recursive_aos(tensor): # test this
@@ -45,6 +42,9 @@ def aos_orientation_to_alpha_rad(tensor, orientation_type):
             # expecting a (1 x N) tensor
             arr = tensor.numpy()
             arr_type = arr.dtype
+
+            # break arr into readable components, then feed to conversion function
+            # - makes testing conversion easier, only operates on 1 pair
             if orientation_type == 'multibin':      val = multibin_to_alpha_rad(arr) # (1x2) -> (1x0) shape
             if orientation_type == 'tricosine':     val = tricosine_to_alpha_rad(arr) # (1x3) -> (1x0) shape
             if orientation_type == 'rot_y_sectors': val = sector2angle(arr,len(arr)) # (1xSectors) -> (1x0) shape

@@ -161,6 +161,32 @@ def multibin_to_alpha_rad(multbins_vals, num_bins:int=2):
 
     return angle_offset
 
+    
+def multibin_to_alpha_rad_test(both_bins_anchors,conf_list, num_bins:int=2):
+    # both_bins_anchors = [[angle, angle],[angle, angle]]
+    # conf_list         = [conf,   conf]]
+
+    # Transform regressed angle
+    max_anc = np.argmax(conf_list) # get index of max confidence
+    anchors = both_bins_anchors[max_anc]
+
+    # why do we need to negative the arccos() 
+    # - 
+    if anchors[1] > 0:
+        angle_offset = np.arccos(anchors[0])
+    else:
+        angle_offset = -np.arccos(anchors[0])
+
+    wedge = 2.*np.pi/num_bins
+    angle_offset = angle_offset + max_anc*wedge
+    angle_offset = angle_offset % (2.*np.pi)
+
+    # angle_offset = angle_offset - np.pi/2
+    # if angle_offset > np.pi:
+    #     angle_offset = angle_offset - (2.*np.pi)
+
+    return angle_offset
+
 def qualityaware(distr_cats,ry_cats:int=4):
     #Spread out the value for quality-aware loss
     section_number = np.where(np.isclose(distr_cats,1.0))[0]
@@ -171,7 +197,7 @@ def qualityaware(distr_cats,ry_cats:int=4):
     if right == ry_cats:
         right = 0
     if left == -1:
-        left = ry_cats-1
+        left = ry_cats-1    
             
     for i in range(int(cat_num)):
         distr_cats[right] = 1 - 1/(cat_num + 1) * (i+1)
