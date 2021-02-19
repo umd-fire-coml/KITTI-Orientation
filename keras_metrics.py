@@ -1,11 +1,6 @@
 import tensorflow as tf
 import numpy as np
 
-from tensorflow.keras import backend as K
-from data_processing import tricosine_to_alpha_rad
-from data_processing import sector2angle  
-from data_processing import multibin_to_alpha_rad  
-
 """
 Usage:
 ------
@@ -13,32 +8,29 @@ model.compile(loss='...', optimizer='...', metrics=[kitti_aos(orientation_type)]
 model.fit(...)
 """
 
-def kitti_aos(orientation_type):
+def get_kitti_metric(orientation_type):
     def metric(y_true, y_pred):
-        alpha_pred = aos_convert_to_alpha(y_pred, orientation_type)
-        alpha_true = aos_convert_to_alpha(y_true, orientation_type) # needed? or y_true (gt) always alpha?
+        alpha_pred = batch_convert_to_alpha(y_pred, orientation_type)
+        alpha_true = batch_convert_to_alpha(y_true, orientation_type) # needed? or y_true (gt) always alpha?
         alpha_delta = alpha_true - alpha_pred
-        normalized  = 0.5 * (K.cos(alpha_delta) + 1)
-        val         = K.sum(normalized)
-
-        return val
+        normalized  = 0.5 * (tf.math.cos(alpha_delta) + 1)
+        mean_offset = tf.math.reduce_mean(normalized)
+        return mean_offset
     return metric
 
-def aos_convert_to_alpha(tensor, orientation_type):
-    if orientation_type == 'tricosine':     return aos_orientation_to_alpha_rad(tensor, 'tricosine')
-    if orientation_type == 'rot_y_sectors': return aos_orientation_to_alpha_rad(tensor, 'rot_y_sectors')
-    if orientation_type == 'alpha_sectors': return aos_orientation_to_alpha_rad(tensor, 'alpha_sectors')
+def batch_convert_to_alpha(tensor, orientation_type):
     if orientation_type == 'multibin':      return aos_orientation_to_alpha_rad(tensor, 'multibin')
-    # if orientation_type == 'rot_y':         return K.map_fun(roty_to_alpha_rad, tensor)  # OLD
+    if orientation_type == 'tricosine':     return aos_orientation_to_alpha_rad(tensor, 'tricosine')
+    if orientation_type == 'alpha':         return aos_orientation_to_alpha_rad(tensor, 'alpha')
+    if orientation_type == 'rot_y':         return aos_orientation_to_alpha_rad(tensor, 'rot_y')
     else:
-        # if orientation type is already 'alpha' or 'rot_y', no need to change
-        return tensor
+        raise Exception("No such orientation type: %s" % orientation_type)
 
 def aos_orientation_to_alpha_rad(tensor, orientation_type):
     def recursive_aos(tensor): # test this
-        # recursively unpacks tensor until the tensor dimension is 1, then operates
-
-        if K.ndim(tensor) > 1: # (1 for (1xN) shape)
+        # recursively unpacks tensor until the tensor dimension is 1xN, then operates
+        s = tensor.get_shape()
+        if s[0] > 1: # expecting a (n x N) tensor
             return tf.map_fn(recursive_aos, tensor)
             # return tf.stack([aos_orientation_to_alpha_rad(un_packed_tensor, orientation_type) for un_packed_tensor in tf.unstack(tensor)]) # make sure stack does not REVERSE
         else:

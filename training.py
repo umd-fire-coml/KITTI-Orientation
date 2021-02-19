@@ -94,7 +94,7 @@ if __name__=="__main__":
     # Building Model
     inputs = Input(shape=(224, 224, 3))
     x = Xception_model(inputs, pooling='avg')
-    x = add_output_layers(orientation, x, NUM_SECTOR,NUM_BIN )
+    x = add_output_layers(orientation, x, NUM_BIN)
     model = Model(inputs=inputs, outputs=x)
     model.compile(loss=loss_func(orientation), optimizer='adam', metrics=[kitti_aos(str(orientation))], run_eagerly=True)
 
