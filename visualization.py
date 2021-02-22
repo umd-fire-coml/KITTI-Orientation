@@ -30,13 +30,15 @@ def make_endpoint(point, center, dims, rot_y):
     point[1] = center[1]
     
     return point
-
 # returns an arrow based on an alpha predition
 def make_alpha_arrow(calibration,kitti_label,img, alpha_pred, dim_pred = None):
-    x = line[8]
-    y = line[9]
-    z = line[10]
-    theta = alpha_pred + math.atan(x,z)
+             
+    line = kitti_label
+    line = line.strip().split(' ')
+    x = float(line[8])
+    y = float(line[9])
+    z = float(line[10])
+    theta = alpha_pred + math.atan(x/z) # the formula from gs 3d
     return make_arrow(calibration, kitti_label,img, theta, dim_pred)
 
 #Draws arrow representing the prediction angle and ground truth angle of a given instance (from label)
