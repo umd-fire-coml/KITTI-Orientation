@@ -5,9 +5,10 @@ import numpy as np
 TAU = np.pi * 2.
 
 # trisector affinity constants
-SECTORS = 3
+SECTORS = int(3)
 SECTOR_WIDTH = TAU / SECTORS
 HALF_SECTOR_WIDTH = SECTOR_WIDTH / 2
+TRICOSINE_SHAPE = (SECTORS, )
 
 def angle_to_trisector_affinity(angle_rad):
     """Return a numpy array of trisector affinity values from an angle (such as alpha or rot_y) in radians
@@ -25,7 +26,7 @@ def angle_to_trisector_affinity(angle_rad):
     new_angle_rad = angle_rad % TAU
     
     # output array
-    trisector_affinity = np.empty(shape=(SECTORS,))
+    trisector_affinity = np.empty(shape=TRICOSINE_SHAPE)
 
     # calculate the bounding sector affinity
     # get the bounding sector number in which the angle is within the bounds of sector's start and end
@@ -148,6 +149,8 @@ def trisector_affinity_to_angle(trisector_affinity, allow_negative_pi=True):
 NUM_BIN = int(2)
 OVERLAP = 0.1
 WEDGE_SIZE = TAU / NUM_BIN  # angle size of each bin, i.e. 180 deg
+ORIENTATION_SHAPE = (NUM_BIN, 2)
+CONFIDENCE_SHAPE = (NUM_BIN, )
 
 def alpha_to_new_alpha(alpha):
     '''Returns new alpha for multibin anchors from kitti alpha'''
@@ -193,8 +196,8 @@ def alpha_to_anchors(alpha):
 def alpha_to_multibin_orientation_confidence(alpha):
     # Get orientation and confidence values
     # set all values as zeros for each orientation (2x2 values) and conf  (2 values, each value represents the sector)
-    orientation = np.zeros((NUM_BIN, 2))
-    confidence = np.zeros(NUM_BIN)
+    orientation = np.zeros(ORIENTATION_SHAPE)
+    confidence = np.zeros(CONFIDENCE_SHAPE)
 
     anchors = alpha_to_anchors(alpha)
 
@@ -236,6 +239,7 @@ def multibin_orientation_confidence_to_alpha(orientation, confidence):
 
 # alpha and rot_y constants
 ALPHA_ROT_Y_NORM_FACTOR = np.pi
+ALPHA_ROT_Y_SHAPE = (1,)
 
 def angle_to_angle_normed(angle_rad):
     '''normalize angle_rad to [-1,1]'''
