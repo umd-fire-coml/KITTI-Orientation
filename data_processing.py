@@ -238,7 +238,7 @@ class KittiGenerator(Sequence):
                 orientation_batch[i] = orientation
                 confidence_batch[i] = confidence
 
-            return img_batch, orientation_batch.astype(NUMPY_TYPE), confidence_batch.astype(NUMPY_TYPE)
+            return img_batch, {'o_layer_output': orientation_batch.astype(NUMPY_TYPE), 'c_layer_output': confidence_batch.astype(NUMPY_TYPE)}
 
         elif self.orientation_type == 'tricosine':
 
