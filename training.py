@@ -96,7 +96,7 @@ if __name__=="__main__":
     # Building Model
     inputs = Input(shape=(224, 224, 3))
     x = Xception_model(inputs, pooling='avg')
-    x = add_output_layers(orientation, x, NUM_BIN)
+    x = add_output_layers(orientation, x)
     model = Model(inputs=inputs, outputs=x)
     model.compile(loss=loss_func(orientation), optimizer='adam', metrics=[OrientationAccuracy(orientation_type=str(orientation))], run_eagerly=True)
 

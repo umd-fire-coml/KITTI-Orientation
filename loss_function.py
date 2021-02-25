@@ -23,8 +23,8 @@ def loss_multibin_orientation(y_true, y_pred):
     loss = tf.reduce_sum((2 - 2 * tf.reduce_mean(loss, axis=0))) / anchors
     return tf.reduce_mean(loss)
 
-def loss_multibin_confidence(c_label, confidence):
-    return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=c_label, logits=confidence))
+def loss_multibin_confidence(y_true, y_pred):
+    return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_true, logits=y_pred))
 
 loss_multibin = {'c_layer_output': loss_multibin_confidence,
                  'o_layer_output': loss_multibin_orientation}
