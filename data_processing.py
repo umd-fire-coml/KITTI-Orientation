@@ -3,6 +3,7 @@ import os
 import math
 import numpy as np
 import copy
+import tensorflow as tf
 from skimage import io
 from skimage.util import img_as_float
 from skimage.transform import resize

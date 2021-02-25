@@ -217,8 +217,8 @@ def multibin_orientation_confidence_to_new_alpha(orientation, confidence):
     new_alpha_predictions = []
 
     for bin_index, bin_confidence in enumerate(confidence):
-        cos = orientation[bin_index, 0]
-        sin = orientation[bin_index, 1]
+        cos = orientation[bin_index][0] #[bin_index, 0]
+        sin = orientation[bin_index][1] #[bin_index, 1]
         new_alpha_minus_wedge_start = np.arctan2(sin, cos)
         wedge_start = bin_index * WEDGE_SIZE
         new_alpha_prediction = new_alpha_minus_wedge_start + wedge_start
@@ -246,3 +246,7 @@ def angle_normed_to_angle_rad(angle_normed):
 
 def alpha_to_rot_y(alpha, loc_x, loc_z):
     return alpha + np.arctan(loc_x/loc_z)
+
+
+def numpy_helper(tensor):
+    return tensor.numpy()

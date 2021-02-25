@@ -8,7 +8,9 @@ import numpy as np
 import data_processing as dp
 import os, argparse, time
 from datetime import datetime
-from keras_metrics import kitti_aos
+from metrics import OrientationAccuracy
+
+tf.compat.v1.enable_eager_execution()
 
 # Processing argument
 parser = argparse.ArgumentParser(description='Training Model')
@@ -30,7 +32,7 @@ parser.add_argument('--kitti_dir', dest = 'kitti_dir', type = str, default='data
 args = parser.parse_args()
 
 # data directory
-data_label = os.path.join(args.kitti_dir, 'training/label_2/')
+data_label = os.path.join(args.kitti_dir, 'training/label_2/') 
 data_img = os.path.join(args.kitti_dir, 'training/image_2/')
 
 def timer(start,end):
@@ -54,7 +56,6 @@ def loss_func(orientation):
     else:
         raise Exception('Incorrect orientation type for loss function')
 
-
 if __name__=="__main__":
     BATCH_SIZE = args.BATCH_SIZE 
     NUM_SECTOR = args.NUM_SECTOR
@@ -77,8 +78,8 @@ if __name__=="__main__":
     print('Training on orientation type:[' ,args.orientation,'] with batch_size =',BATCH_SIZE, 'and num_sector is =',NUM_SECTOR)    
     # Generator config
     print('Loading generator')
-    generator = dp.KittiGenerator(label_dir= data_label, image_dir= data_img,sectors = NUM_SECTOR, batch_size = BATCH_SIZE,orientation_type = args.orientation,mode = 'train',val_split=0.2 )
-    validation = dp.KittiGenerator(label_dir= data_label, image_dir= data_img,sectors = NUM_SECTOR, batch_size = BATCH_SIZE,orientation_type = args.orientation,mode = 'val',val_split=0.2 )
+    generator = dp.KittiGenerator(label_dir= data_label, image_dir= data_img, batch_size = BATCH_SIZE,orientation_type = args.orientation,mode = 'train',val_split=0.2 )
+    validation = dp.KittiGenerator(label_dir= data_label, image_dir= data_img, batch_size = BATCH_SIZE,orientation_type = args.orientation,mode = 'val',val_split=0.2 )
     # model callback config
     checkpoint_path = os.path.join(weight_dir, datetime.now().strftime("%Y%m%d-%H%M%S"))
     if not os.path.isdir(checkpoint_path):
@@ -86,6 +87,7 @@ if __name__=="__main__":
     checkpoint_path = os.path.join(checkpoint_path, str(orientation) +'_model.{epoch:02d}-{loss:.4f}-{val_loss:.4f}.h5')
     # tensorboard
     log_dir = os.path.join(weight_dir,"logs/scalars/", datetime.now().strftime("%Y%m%d-%H%M%S"))
+
     # tensorboard callback, checkpoint callback, early stop callback and accuracy callback
     tb_callback =tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path, save_weights_only=True,verbose=1)
@@ -96,7 +98,7 @@ if __name__=="__main__":
     x = Xception_model(inputs, pooling='avg')
     x = add_output_layers(orientation, x, NUM_BIN)
     model = Model(inputs=inputs, outputs=x)
-    model.compile(loss=loss_func(orientation), optimizer='adam', metrics=[kitti_aos(str(orientation))], run_eagerly=True)
+    model.compile(loss=loss_func(orientation), optimizer='adam', metrics=[OrientationAccuracy(orientation_type=str(orientation))], run_eagerly=True)
 
     print('Starting Training')
     start_time = time.time()
