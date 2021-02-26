@@ -35,10 +35,10 @@ def make_alpha_arrow(calibration,kitti_label,img, alpha_pred, dim_pred = None):
              
     line = kitti_label
     line = line.strip().split(' ')
-    x = float(line[8])
-    y = float(line[9])
-    z = float(line[10])
-    theta = alpha_pred + math.atan(x/z) # the formula from gs 3d
+    x = float(line[11])
+    y = float(line[12])
+    z = float(line[13])
+    theta = alpha_pred + math.atan2(x, z) # the formula from gs 3d
     return make_arrow(calibration, kitti_label,img, theta, dim_pred)
 
 #Draws arrow representing the prediction angle and ground truth angle of a given instance (from label)
@@ -137,8 +137,8 @@ def make_arrow(calibration, kitti_label, img, rot_y_pred, dim_pred=None):
     endpoint = convert_to_2d(endpoint, cam_to_img)
     gt_endpoint = convert_to_2d(gt_endpoint, cam_to_img)
 
-    disp = cv2.arrowedLine(img, center, endpoint, color = (255, 0, 0), thickness = 5, tipLength = .2)
-    disp = cv2.arrowedLine(img, center, gt_endpoint, color = (0, 255, 0), thickness = 5, tipLength = .2)
+    disp = cv2.arrowedLine(img, center, endpoint, color = (255, 0, 0), thickness = 2, tipLength = .5)
+    disp = cv2.arrowedLine(img, center, gt_endpoint, color = (0, 255, 0), thickness = 2, tipLength = .5)
     
     return disp
 
