@@ -101,10 +101,6 @@ if __name__=="__main__":
     print('\n\nHERE |{}|\n\n'.format(str(orientation)))
     model.compile(loss=loss_func(orientation), optimizer='adam', metrics=[OrientationAccuracy(orientation_type=str(orientation))], run_eagerly=True)
 
-
-    from pprint import pprint
-    pprint(vars(model))
-
     print('Starting Training')
     start_time = time.time()
     history = model.fit(x=generator, epochs=num_epoch, verbose=1, validation_data=validation, callbacks=[tb_callback, cp_callback])
