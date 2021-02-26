@@ -21,7 +21,7 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
     def aos_convert_to_alpha(self, tensor):
         # if orientation type is already 'alpha' or 'rot_y', no need to change
         if self.orientation_type in ['rot_y','alpha']: 
-            return tensor
+            return tf.map_fn(angle_normed_to_angle_rad, tensor)
         else: 
             return self.recursive_aos(tensor)
             
@@ -45,7 +45,6 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
             if self.orientation_type == 'tricosine': val = trisector_affinity_to_angle(arr)# (1x3) -> (1x0) shape
             # if orientation_type == 'rot_y_sectors': val = sector2angle(arr,len(arr)) # (1xSectors) -> (1x0) shape
             # if orientation_type == 'alpha_sectors': val = sector2angle(arr,len(arr)) # (1xSectors) -> (1x0) shape
-            val = angle_normed_to_angle_rad(val)
             val = np.asarray(val, dtype=arr_type)
             return tf.constant(val) 
     

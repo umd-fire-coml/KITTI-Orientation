@@ -101,11 +101,16 @@ if __name__=="__main__":
     print('\n\nHERE |{}|\n\n'.format(str(orientation)))
     model.compile(loss=loss_func(orientation), optimizer='adam', metrics=[OrientationAccuracy(orientation_type=str(orientation))], run_eagerly=True)
 
+
+    from pprint import pprint
+    pprint(vars(model.compiled_metrics))
+    pprint(vars(model.compiled_metrics._metrics[0]))
+
     print('Starting Training')
     start_time = time.time()
     history = model.fit(x=generator, epochs=num_epoch, verbose=1, validation_data=validation, callbacks=[tb_callback, cp_callback])
 
-    with open(os.path.join(weight_dir, 'training_hist.txt'), 'w') as f:
-        f.write(str(history.history))
-    print('Training Finished. Weights are saved under directory:', weight_dir)
-    print('Total training time is', timer(start_time, time.time()))
+    # with open(os.path.join(weight_dir, 'training_hist.txt'), 'w') as f:
+    #     f.write(str(history.history))
+    # print('Training Finished. Weights are saved under directory:', weight_dir)
+    # print('Total training time is', timer(start_time, time.time()))
