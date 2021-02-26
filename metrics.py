@@ -9,7 +9,7 @@ from orientation_converters import multibin_orientation_confidence_to_alpha, tri
 class OrientationAccuracy(tf.keras.metrics.Metric):
 
     # Create the state variables in __init__
-    def __init__(self, name='orientation_accuracy', orientation_type=None, **kwargs):
+    def __init__(self, orientation_type, name='orientation_accuracy', **kwargs):
         super(OrientationAccuracy, self).__init__(name=name, **kwargs)
 
         # internal state variables
@@ -30,14 +30,17 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
         # recursively unpacks tensor until the tensor dimension is 1xN, then operates
         s = tensor.get_shape()
         if len(s) > 1: # expecting a (n x N) tensor
-            return tf.map_fn(self.recursive_aos, tensor)
-            # return tf.stack([aos_orientation_to_alpha_rad(un_packed_tensor, orientation_type)
-            #                  for un_packed_tensor in tf.unstack(tensor)]) # make sure stack does not REVERSE
+            # return tf.map_fn(self.recursive_aos, tensor)
+            return tf.stack([self.recursive_aos(un_packed_tensor)
+                             for un_packed_tensor in tf.unstack(tensor)]) # make sure stack does not REVERSE
         else:
             # expecting a (1 x N) tensor
             arr = tensor.numpy()
             arr_type = arr.dtype
 
+            # print('\n\n self.orientation_type: {}\n\n'.format(self.orientation_type))
+            # print('\n\n arr: {}\n\n'.format(arr))
+            # val = multibin_orientation_confidence_to_alpha(arr[0],arr[1])
             if self.orientation_type == 'multibin':  val = multibin_orientation_confidence_to_alpha(arr[0],arr[1]) # (1x2) -> (1x0) shape
             if self.orientation_type == 'tricosine': val = trisector_affinity_to_angle(arr)# (1x3) -> (1x0) shape
             # if orientation_type == 'rot_y_sectors': val = sector2angle(arr,len(arr)) # (1xSectors) -> (1x0) shape

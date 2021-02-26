@@ -8,8 +8,8 @@ def add_dense_layers(backbone_layer, output_shape, out_layer_name=''):
     y = layers.Dense(256)(backbone_layer)
     y = layers.LeakyReLU(0.1)(y)
     y = layers.Dropout(0.5)(y)
-    y = layers.Dense(reduce(lambda x, y: x*y, output_shape), name=out_layer_name)(y)
-    y = layers.Reshape(output_shape)(y)
+    y = layers.Dense(reduce(lambda x, y: x*y, output_shape))(y)
+    y = layers.Reshape(output_shape, name=out_layer_name)(y)
     return y
 
 def add_output_layers(orientation_output_type, backbone_layer):
@@ -19,7 +19,7 @@ def add_output_layers(orientation_output_type, backbone_layer):
         o_layer = add_dense_layers(backbone_layer, ORIENTATION_SHAPE)
         o_layer = layers.Lambda(lambda a: K.l2_normalize(a,axis=2), name='o_layer_output')(o_layer) # l2_normalization
 
-        c_layer = add_dense_layers(backbone_layer, CONFIDENCE_SHAPE)
+        c_layer = add_dense_layers(backbone_layer, CONFIDENCE_SHAPE, out_layer_name='c_layer_output')
         # c_layer = layers.Softmax(name='c_layer_output')(c_layer_pre)
         # return o_layer, c_layer_pre, c_layer
         return o_layer, c_layer

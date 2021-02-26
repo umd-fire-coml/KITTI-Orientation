@@ -98,7 +98,12 @@ if __name__=="__main__":
     x = Xception_model(inputs, pooling='avg')
     x = add_output_layers(orientation, x)
     model = Model(inputs=inputs, outputs=x)
+    print('\n\nHERE |{}|\n\n'.format(str(orientation)))
     model.compile(loss=loss_func(orientation), optimizer='adam', metrics=[OrientationAccuracy(orientation_type=str(orientation))], run_eagerly=True)
+
+
+    from pprint import pprint
+    pprint(vars(model))
 
     print('Starting Training')
     start_time = time.time()
