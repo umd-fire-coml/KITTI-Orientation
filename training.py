@@ -102,7 +102,6 @@ if __name__ == "__main__":
     # early stop callback and accuracy callback
     # early_stop_callback = tf.keras.callbacks.EarlyStopping(
     #     monitor='val_loss', patience=20)
-
     train_history = model.fit(x=generator, epochs=NUM_EPOCH, verbose=1,
                               validation_data=validation, callbacks=[tb_callback, cp_callback])
 

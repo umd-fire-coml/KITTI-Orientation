@@ -219,7 +219,7 @@ class KittiGenerator(Sequence):
         self.on_epoch_end()
 
     def __len__(self):
-        return self.num_objs // self.batch_size
+        return int(self.num_objs // self.batch_size)
 
     def __getitem__(self, idx):
         l_bound = idx * self.batch_size  # start of key index
