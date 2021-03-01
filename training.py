@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
 
     # log directory for weights, history, tensorboard
-    log_dir = os.path.join(WEIGHT_DIR, ORIENTATION + '_' + datetime.now().strftime("%Y%m%d-%H%M%S") + '_' + str(start_time))
+    log_dir = os.path.join(WEIGHT_DIR, ORIENTATION + '_' + datetime.now().strftime("%Y%m%d-%H%M%S") + '_' + str(int(start_time)))
     if not os.path.isdir(log_dir):
         os.mkdir(log_dir)
 
