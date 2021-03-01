@@ -21,7 +21,7 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
     def aos_convert_to_alpha(self, tensor):
         # if orientation type is already 'alpha' or 'rot_y', no need to change
         if self.orientation_type in ['rot_y','alpha']: 
-            return tensor
+            return angle_normed_to_angle_rad(tensor)
         else: 
             return self.recursive_aos(tensor)
             
@@ -41,11 +41,9 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
             # print('\n\n self.orientation_type: {}\n\n'.format(self.orientation_type))
             # print('\n\n arr: {}\n\n'.format(arr))
             # val = multibin_orientation_confidence_to_alpha(arr[0],arr[1])
-            if self.orientation_type == 'multibin':  val = multibin_orientation_confidence_to_alpha(arr[0],arr[1]) # (1x2) -> (1x0) shape
-            if self.orientation_type == 'tricosine': val = trisector_affinity_to_angle(arr)# (1x3) -> (1x0) shape
-            # if orientation_type == 'rot_y_sectors': val = sector2angle(arr,len(arr)) # (1xSectors) -> (1x0) shape
-            # if orientation_type == 'alpha_sectors': val = sector2angle(arr,len(arr)) # (1xSectors) -> (1x0) shape
-            val = angle_normed_to_angle_rad(val)
+            if self.orientation_type == 'multibin':  val = multibin_orientation_confidence_to_alpha(arr['o_layer_output'], arr['c_layer_output']) # (1x2) -> (1x0) shape
+            elif self.orientation_type == 'tricosine': val = trisector_affinity_to_angle(arr)# (1x3) -> (1x0) shape
+            else: raise Exception("Invalid self.orientation_type: " + self.orientation_type)
             val = np.asarray(val, dtype=arr_type)
             return tf.constant(val) 
     
@@ -53,7 +51,6 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
     def update_state(self, y_true, y_pred, sample_weight=None):
 
         # convert to alphas using orientation_converters and calculate the batch_accuracies
-
         alpha_pred = self.aos_convert_to_alpha(y_pred)
         alpha_true = self.aos_convert_to_alpha(y_true)
         alpha_delta = alpha_true - alpha_pred
