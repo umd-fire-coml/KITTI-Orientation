@@ -83,6 +83,7 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
+
     # log directory for weights, history, tensorboard
     log_dir = os.path.join(WEIGHT_DIR, ORIENTATION + '_' + datetime.now().strftime("%Y%m%d-%H%M%S") + '_' + str(start_time))
     if not os.path.isdir(log_dir):
