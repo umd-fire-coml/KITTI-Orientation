@@ -49,7 +49,7 @@ def loss_func(orientation):
         raise Exception('Incorrect orientation type for loss function')
 
 if __name__ == "__main__":
-    BATCH_SIZE = args.val_split
+    BATCH_SIZE = args.batch_size
     NUM_EPOCH = args.num_epoch
     ORIENTATION = args.orientation
     KITTI_DIR = args.kitti_dir
