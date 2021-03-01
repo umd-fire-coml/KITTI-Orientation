@@ -18,7 +18,7 @@ parser.add_argument(dest='orientation', type=str,
                     help='Orientation Type of the model. Options are tricosine, alpha, rot_y, multibin')
 parser.add_argument('--batch_size', dest='batch_size', type=int, default=8,
                     help='Define the batch size for training. Default value is 8')
-parser.add_argument('--weight_dir', dest='weight_dir', type=str, default='weights'
+parser.add_argument('--weight_dir', dest='weight_dir', type=str, default='weights',
                     help='Relative path to save weights. Default path is weights')
 parser.add_argument('--epoch', dest='num_epoch', type=int, default=100,
                     help='Number of epoch used for training. Default value is 100')
