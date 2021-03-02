@@ -10,6 +10,28 @@ import time
 from datetime import datetime
 from metrics import OrientationAccuracy
 
+import tensorflow as tf
+# set up tensorflow GPU
+tf.config.list_physical_devices('GPU')
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        config = tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(
+            per_process_gpu_memory_fraction=0.8)
+            # device_count = {'GPU': 1}
+        )
+        config.gpu_options.allow_growth = True
+        session = tf.compat.v1.Session(config=config)
+        tf.compat.v1.keras.backend.set_session(session)
+        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
+
 tf.compat.v1.enable_eager_execution()
 
 # Processing argument
@@ -78,8 +100,9 @@ if __name__ == "__main__":
     x = Xception_model(inputs, pooling='avg')
     x = add_output_layers(ORIENTATION, x)
     model = Model(inputs=inputs, outputs=x)
-    model.compile(loss=loss_func(ORIENTATION), optimizer='adam', metrics=[
-                  OrientationAccuracy(orientation_type=ORIENTATION)], run_eagerly=True)
+    model.compile(loss=loss_func(ORIENTATION), optimizer='adam',
+                    metrics=[])
+                #   metrics=[OrientationAccuracy(ORIENTATION)], run_eagerly=True)
 
     start_time = time.time()
 
@@ -90,7 +113,7 @@ if __name__ == "__main__":
         os.mkdir(log_dir)
 
     # model callback config
-    checkpoint_path = os.path.join(log_dir, 'epoch-{epoch:02d}-loss-{loss:.4f}-val_loss-{val_loss:.4f}.h5')
+    checkpoint_path = os.path.join(log_dir, 'epoch-{epoch:02d}-loss-{loss:.4f}-val_loss-{val_loss:.4f}-orientation_accuracy-{orientation_accuracy:.4f}.h5')
     cp_callback = tf.keras.callbacks.ModelCheckpoint(
         filepath=checkpoint_path, save_weights_only=True, verbose=1)
 

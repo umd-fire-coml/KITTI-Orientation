@@ -12,7 +12,7 @@ from tensorflow.keras.utils import Sequence
 from tqdm import tqdm
 from random import random
 from orientation_converters import (angle_to_trisector_affinity, 
-    alpha_to_multibin_orientation_confidence, angle_to_angle_normed, NUM_BIN)
+    alpha_to_multibin_orientation_confidence, angle_to_angle_normed, ORIENTATION_SHAPE, CONFIDENCE_SHAPE)
 
 # constants
 NORM_H, NORM_W = 224, 224
@@ -230,8 +230,8 @@ class KittiGenerator(Sequence):
 
         if self.orientation_type == "multibin":
             # prepare output tensors
-            orientation_batch = np.empty((num_batch_objs, NUM_BIN, 2))
-            confidence_batch = np.empty((num_batch_objs, NUM_BIN))
+            orientation_batch = np.empty((num_batch_objs, *ORIENTATION_SHAPE))
+            confidence_batch = np.empty((num_batch_objs, *CONFIDENCE_SHAPE))
             
             for i, key in enumerate(self.obj_ids[l_bound:r_bound]):
                 image, orientation, confidence = prepare_generator_output(self.image_dir, self.all_objs[key], self.orientation_type)
@@ -239,7 +239,8 @@ class KittiGenerator(Sequence):
                 orientation_batch[i] = orientation
                 confidence_batch[i] = confidence
 
-            return img_batch, {'o_layer_output': orientation_batch.astype(NUMPY_TYPE), 'c_layer_output': confidence_batch.astype(NUMPY_TYPE)}
+            orientation_confidence_batch = np.concatenate((orientation_batch, confidence_batch), axis=-1)
+            return img_batch, {'o_c_layer_output': orientation_confidence_batch}
 
         elif self.orientation_type == 'tricosine':
 
