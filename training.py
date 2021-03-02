@@ -32,8 +32,6 @@ if gpus:
         # Memory growth must be set before GPUs have been initialized
         print(e)
 
-tf.compat.v1.enable_eager_execution()
-
 # Processing argument
 parser = argparse.ArgumentParser(description='Training Model')
 parser.add_argument(dest='orientation', type=str,
@@ -101,8 +99,7 @@ if __name__ == "__main__":
     x = add_output_layers(ORIENTATION, x)
     model = Model(inputs=inputs, outputs=x)
     model.compile(loss=loss_func(ORIENTATION), optimizer='adam',
-                    metrics=[])
-                #   metrics=[OrientationAccuracy(ORIENTATION)], run_eagerly=True)
+                  metrics=[OrientationAccuracy(ORIENTATION)], run_eagerly=True)
 
     start_time = time.time()
 

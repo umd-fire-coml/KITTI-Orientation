@@ -30,7 +30,7 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
     def recursive_aos(self, tensor): # test this
         # recursively unpacks tensor until the tensor dimension is 1xN, then operates
         s = tensor.get_shape()
-        if len(s) > 1: # expecting a (n x N) tensor
+        if len(s) > 2: # expecting a (n x N) tensor
             # return tf.map_fn(self.recursive_aos, tensor)
             return tf.stack([self.recursive_aos(un_packed_tensor)
                              for un_packed_tensor in tf.unstack(tensor)]) # make sure stack does not REVERSE
@@ -38,14 +38,14 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
             # expecting a (1 x N) tensor
             arr = tensor.numpy()
             arr_type = arr.dtype
-
-            # print('\n\n self.orientation_type: {}\n\n'.format(self.orientation_type))
-            # print('\n\n arr: {}\n\n'.format(arr))
-            # val = multibin_orientation_confidence_to_alpha(arr[0],arr[1])
-            if self.orientation_type == 'multibin':  
-                val = multibin_orientation_confidence_to_alpha(arr[:,:2],arr[:,2:]) # (1x2) -> (1x0) shape
-            elif self.orientation_type == 'tricosine': val = trisector_affinity_to_angle(arr)# (1x3) -> (1x0) shape
-            else: raise Exception("Invalid self.orientation_type: " + self.orientation_type)
+            if self.orientation_type == 'multibin':
+                # (2x2),(2,1) -> (1x0) shape
+                val = multibin_orientation_confidence_to_alpha(arr[:,:2],arr[:,2:]) 
+            elif self.orientation_type == 'tricosine': 
+                # (1x3) -> (1x0) shape
+                val = trisector_affinity_to_angle(arr)
+            else: 
+                raise Exception("Invalid self.orientation_type: " + self.orientation_type)
             val = np.asarray(val, dtype=arr_type)
             return tf.constant(val) 
     
