@@ -150,7 +150,7 @@ NUM_BIN = int(2)
 OVERLAP = 0.1
 WEDGE_SIZE = TAU / NUM_BIN  # angle size of each bin, i.e. 180 deg
 ORIENTATION_SHAPE = (NUM_BIN, 2)
-CONFIDENCE_SHAPE = (NUM_BIN, )
+CONFIDENCE_SHAPE = (NUM_BIN, 1)
 
 def alpha_to_new_alpha(alpha):
     '''Returns new alpha for multibin anchors from kitti alpha'''
@@ -216,18 +216,18 @@ def alpha_to_multibin_orientation_confidence(alpha):
 
 def multibin_orientation_confidence_to_new_alpha(orientation, confidence):
 
-    new_alpha_confidences = []
-    new_alpha_predictions = []
+    new_alpha_confidences = np.zeros(CONFIDENCE_SHAPE)
+    new_alpha_predictions = np.zeros(CONFIDENCE_SHAPE)
 
     for bin_index, bin_confidence in enumerate(confidence):
-        cos = orientation[bin_index][0] #[bin_index, 0]
-        sin = orientation[bin_index][1] #[bin_index, 1]
+        cos = orientation[bin_index, 0] #[bin_index, 0]
+        sin = orientation[bin_index, 1] #[bin_index, 1]
         new_alpha_minus_wedge_start = np.arctan2(sin, cos)
         wedge_start = bin_index * WEDGE_SIZE
         new_alpha_prediction = new_alpha_minus_wedge_start + wedge_start
         new_alpha_prediction = new_alpha_prediction % TAU
-        new_alpha_confidences.append(bin_confidence)
-        new_alpha_predictions.append(new_alpha_prediction)
+        new_alpha_confidences[bin_index] = bin_confidence
+        new_alpha_predictions[bin_index] = new_alpha_prediction
     
     # compute the weighted average
     new_alpha = np.average(new_alpha_predictions, weights=new_alpha_confidences)

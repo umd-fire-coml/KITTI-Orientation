@@ -20,9 +20,11 @@ def add_output_layers(orientation_output_type, backbone_layer):
         o_layer = layers.Lambda(lambda a: K.l2_normalize(a,axis=2), name='o_layer_output')(o_layer) # l2_normalization
 
         c_layer = add_dense_layers(backbone_layer, CONFIDENCE_SHAPE, out_layer_name='c_layer_output')
+
+        o_c_layer = layers.concatenate([o_layer, c_layer], axis=-1, name='o_c_layer_output')
         # c_layer = layers.Softmax(name='c_layer_output')(c_layer_pre)
         # return o_layer, c_layer_pre, c_layer
-        return o_layer, c_layer
+        return o_c_layer
     # If not multibin -> output first stage with different shapes
     elif orientation_output_type == 'alpha': output_shape = ALPHA_ROT_Y_SHAPE
     elif orientation_output_type == 'rot_y': output_shape = ALPHA_ROT_Y_SHAPE
