@@ -88,10 +88,12 @@ if __name__ == "__main__":
     IMG_DIR = os.path.join(KITTI_DIR, 'training/image_2/')
 
     # Generator config
-    generator = dp.KittiGenerator(label_dir=LABEL_DIR, image_dir=IMG_DIR, batch_size=BATCH_SIZE,
+    train_gen = dp.KittiGenerator(label_dir=LABEL_DIR, image_dir=IMG_DIR, batch_size=BATCH_SIZE,
                                   orientation_type=ORIENTATION, mode='train', val_split=VAL_SPLIT)
-    validation = dp.KittiGenerator(label_dir=LABEL_DIR, image_dir=IMG_DIR, batch_size=BATCH_SIZE,
-                                   orientation_type=ORIENTATION, mode='val', val_split=VAL_SPLIT)
+    val_gen = dp.KittiGenerator(label_dir=LABEL_DIR, image_dir=IMG_DIR, batch_size=BATCH_SIZE,
+                                   orientation_type=ORIENTATION, mode='val', val_split=VAL_SPLIT,
+                                   all_objs=train_gen.all_objs)
+    print('Training on {:n} objects. Validating on {:n} objects.'.format(len(train_gen.obj_ids), len(val_gen.obj_ids)))
 
     # Building Model
     inputs = Input(shape=(224, 224, 3))
@@ -122,8 +124,8 @@ if __name__ == "__main__":
     # early stop callback and accuracy callback
     # early_stop_callback = tf.keras.callbacks.EarlyStopping(
     #     monitor='val_loss', patience=20)
-    train_history = model.fit(x=generator, epochs=NUM_EPOCH, verbose=1,
-                              validation_data=validation, callbacks=[tb_callback, cp_callback])
+    train_history = model.fit(x=train_gen, epochs=NUM_EPOCH, verbose=1,
+                              validation_data=val_gen, callbacks=[tb_callback, cp_callback])
 
     # save training history as json file
     with open(os.path.join(WEIGHT_DIR, 'training_hist.json'), 'w') as f:
