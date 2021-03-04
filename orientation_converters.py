@@ -151,6 +151,7 @@ OVERLAP = 0.1
 WEDGE_SIZE = TAU / NUM_BIN  # angle size of each bin, i.e. 180 deg
 ORIENTATION_SHAPE = (NUM_BIN, 2)
 CONFIDENCE_SHAPE = (NUM_BIN, 1)
+MULTIBIN_SHAPE = (NUM_BIN, 3)
 
 def alpha_to_new_alpha(alpha):
     '''Returns new alpha for multibin anchors from kitti alpha'''
