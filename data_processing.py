@@ -3,7 +3,6 @@ import os
 import math
 import numpy as np
 import copy
-import tensorflow as tf
 from skimage import io
 from skimage.util import img_as_float
 from skimage.transform import resize
@@ -196,35 +195,36 @@ class KittiGenerator(Sequence):
                  mode: str = "train",
                  batch_size: int = 8,
                  orientation_type: str = "multibin",
-                 val_split: float = 0.0):
+                 val_split: float = 0.0,
+                 all_objs = None):
         self.label_dir = label_dir
         self.image_dir = image_dir
-        self.all_objs = get_all_objs_from_kitti_dir(label_dir, image_dir)
+        if all_objs == None:
+            self.all_objs = get_all_objs_from_kitti_dir(label_dir, image_dir)
+        else:
+            self.all_objs = all_objs
         self.mode = mode
         self.batch_size = batch_size
         self.orientation_type = orientation_type
-        self.num_objs = len(self.all_objs)  # number of objects
-        self.obj_ids = list(range(self.num_objs))  # list of all object indexes for the generator
+        self.obj_ids = list(range(len(self.all_objs)))  # list of all object indexes for the generator
         if val_split > 0.0:
             assert mode != 'all' and val_split < 1.0
-            cutoff = int(val_split * self.num_objs)
+            cutoff = int(val_split * len(self.all_objs))
             if self.mode == "train":
                 self.obj_ids = self.obj_ids[cutoff:]
-                self.num_objs = len(self.obj_ids)
             elif self.mode == "val":
                 self.obj_ids = self.obj_ids[:cutoff]
-                self.num_objs = len(self.obj_ids)
             else:
-                assert False, "invalid mode"
+                raise Exception("invalid mode")
         self.on_epoch_end()
 
     def __len__(self):
-        return int(self.num_objs // self.batch_size)
+        return int(len(self.obj_ids) // self.batch_size)
 
     def __getitem__(self, idx):
         l_bound = idx * self.batch_size  # start of key index
         r_bound = l_bound + self.batch_size  # end of key index
-        r_bound = r_bound if r_bound < self.num_objs else self.num_objs  # check for key index overflow
+        r_bound = r_bound if r_bound < len(self.obj_ids) else len(self.obj_ids)  # check for key index overflow
         num_batch_objs = r_bound - l_bound
         img_batch = np.empty((num_batch_objs, NORM_H, NORM_W, 3))  # batch of images
 
