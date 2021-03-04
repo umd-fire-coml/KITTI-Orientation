@@ -1,7 +1,5 @@
 import tensorflow as tf
-from backbone_xception import Xception_model
-from add_output_layers import add_output_layers
-from tensorflow.keras import Input, Model
+from build_model import build_model
 from loss_function import *
 import data_processing as dp
 import os
@@ -96,10 +94,7 @@ if __name__ == "__main__":
     print('Training on {:n} objects. Validating on {:n} objects.'.format(len(train_gen.obj_ids), len(val_gen.obj_ids)))
 
     # Building Model
-    inputs = Input(shape=(224, 224, 3))
-    x = Xception_model(inputs, pooling='avg')
-    x = add_output_layers(ORIENTATION, x)
-    model = Model(inputs=inputs, outputs=x)
+    model = build_model(ORIENTATION)
     model.compile(loss=loss_func(ORIENTATION), optimizer='adam',
                   metrics=[OrientationAccuracy(ORIENTATION)], run_eagerly=True)
 
@@ -107,7 +102,7 @@ if __name__ == "__main__":
 
 
     # log directory for weights, history, tensorboard
-    log_dir = os.path.join(WEIGHT_DIR, ORIENTATION + '_' + datetime.now().strftime("%Y%m%d-%H%M%S") + '_' + str(int(start_time)))
+    log_dir = os.path.join(WEIGHT_DIR, ORIENTATION + '_' + datetime.now().strftime("%Y-%m-%d-%H:%M:%S") + '_' + str(int(start_time)))
     if not os.path.isdir(log_dir):
         os.mkdir(log_dir)
 

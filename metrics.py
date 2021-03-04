@@ -83,3 +83,10 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
     # Return the metric result in result()
     def result(self):
         return self.cur_accuracy
+
+    # Reset state
+    def reset_states(self):
+        self.num_pairs = tf.Variable(0)  # num of pairs of y_true, y_pred
+        # sum of accuracies for each pair of y_true, y_pred
+        self.sum_accuracy = tf.Variable(0.)
+        self.cur_accuracy = self.add_weight(name='oa', initializer='zeros')  # current state of accuracy
