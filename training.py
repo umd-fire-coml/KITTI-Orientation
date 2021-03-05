@@ -1,6 +1,6 @@
 import tensorflow as tf
 from build_model import build_model
-from loss_function import *
+from loss_function import get_loss_function
 import data_processing as dp
 import os
 import argparse
@@ -53,19 +53,6 @@ def timer(start, end):
     minutes, seconds = divmod(rem, 60)
     print("{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds))
 
-
-def loss_func(orientation):
-    if orientation == 'tricosine':
-        return loss_tricosine
-    elif orientation == 'alpha':
-        return loss_alpha
-    elif orientation == 'rot_y':
-        return loss_rot_y
-    elif orientation == 'multibin':
-        return loss_multibin
-    else:
-        raise Exception('Incorrect orientation type for loss function')
-
 if __name__ == "__main__":
     BATCH_SIZE = args.batch_size
     NUM_EPOCH = args.num_epoch
@@ -95,14 +82,14 @@ if __name__ == "__main__":
 
     # Building Model
     model = build_model(ORIENTATION)
-    model.compile(loss=loss_func(ORIENTATION), optimizer='adam',
+    model.compile(loss=get_loss_function(ORIENTATION), optimizer='adam',
                   metrics=[OrientationAccuracy(ORIENTATION)], run_eagerly=True)
 
     start_time = time.time()
 
 
     # log directory for weights, history, tensorboard
-    log_dir = os.path.join(WEIGHT_DIR, ORIENTATION + '_' + datetime.now().strftime("%Y-%m-%d-%H:%M:%S") + '_' + str(int(start_time)))
+    log_dir = os.path.join(WEIGHT_DIR, ORIENTATION + '_' + datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + '_' + str(int(start_time)))
     if not os.path.isdir(log_dir):
         os.mkdir(log_dir)
 

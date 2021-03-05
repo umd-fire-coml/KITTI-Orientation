@@ -11,7 +11,8 @@ from tensorflow.keras.utils import Sequence
 from tqdm import tqdm
 from random import random
 from orientation_converters import (angle_to_trisector_affinity, 
-    alpha_to_multibin_orientation_confidence, angle_to_angle_normed, ORIENTATION_SHAPE, CONFIDENCE_SHAPE)
+    alpha_to_multibin_orientation_confidence, angle_to_angle_normed, MULTIBIN_SHAPE, TRICOSINE_SHAPE, ALPHA_ROT_Y_SHAPE)
+from add_output_layers import MULTIBIN_LAYER_OUTPUT_NAME, TRICOSINE_LAYER_OUTPUT_NAME, ALPHA_ROT_Y_LAYER_OUTPUT_NAME
 
 # constants
 NORM_H, NORM_W = 224, 224
@@ -75,15 +76,8 @@ def get_all_objs_from_kitti_dir(label_dir, image_dir, difficulty='hard'):
                         'loc_y': float(obj_line_tokens[12]),
                         'loc_z': float(obj_line_tokens[13]),
                         'rot_y': float(obj_line_tokens[14]),
+                        'line': obj_line
                        }
-
-                # Get multibin
-                orientation, confidence = alpha_to_multibin_orientation_confidence(obj["alpha"])
-                obj['multibin_orientation'] = orientation
-                obj['multibin_confidence'] = confidence
-
-                # Get tricosine
-                obj['tricosine'] = angle_to_trisector_affinity(obj['alpha'])
 
                 # Get camera view angle of the object
                 center = ((obj['xmin'] + obj['xmax']) / 2, (obj['ymin'] + obj['ymax']) / 2)
@@ -104,14 +98,14 @@ def get_all_objs_from_kitti_dir(label_dir, image_dir, difficulty='hard'):
 
 # get the bounding box,  values for the instance
 # this automatically does flips
-def prepare_generator_output(image_dir: str, obj, orientation: str):
+def prepare_generator_output(image_dir: str, obj, orientation_type: str):
     # Prepare image patch
     xmin = obj['xmin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     ymin = obj['ymin']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     xmax = obj['xmax']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
     ymax = obj['ymax']  # + np.random.randint(-MAX_JIT, MAX_JIT+1)
 
-    # read image
+    # read object image
     img = img_as_float(io.imread(join(image_dir, obj['image_file'])))
     img = copy.deepcopy(img[ymin:ymax + 1, xmin:xmax + 1])
     # resize the image to standard size
@@ -119,7 +113,7 @@ def prepare_generator_output(image_dir: str, obj, orientation: str):
     img = img.astype(NUMPY_TYPE)
 
     # Get the dimensions offset from average (basically zero centering the values)
-    obj['dims'] = obj['dims'] - class_dims_means[obj['class_name']]
+    obj['dims_mean_offset'] = obj['dims'] - class_dims_means[obj['class_name']]
  
     # flip the image by random chance
     flip = random() < 0.5
@@ -127,64 +121,56 @@ def prepare_generator_output(image_dir: str, obj, orientation: str):
     # flip image horizontally
     if flip:
         img = np.fliplr(img)
-        if orientation == 'multibin':
+        if orientation_type == 'multibin':
             if 'multibin_orientation_flipped' not in obj:
                 # Get orientation and confidence values for flip
-                orientation_flipped, confidence_flipped = alpha_to_multibin_orientation_confidence(math.tau - obj["alpha"])
-                obj['multibin_orientation_flipped'] = orientation_flipped
-                obj['multibin_confidence_flipped'] = confidence_flipped
-            return img, obj['multibin_orientation_flipped'], obj['multibin_confidence_flipped']
-
-        elif orientation == 'tricosine':
+                multibin_orientation_flipped, multibin_confidence_flipped = alpha_to_multibin_orientation_confidence(math.tau - obj["alpha"])
+                obj['multibin_orientation_flipped'] = multibin_orientation_flipped
+                obj['multibin_confidence_flipped'] = multibin_confidence_flipped
+            return img, np.concatenate((obj['multibin_orientation_flipped'], obj['multibin_confidence_flipped']), axis=-1)
+        elif orientation_type == 'tricosine':
             if 'tricosine_flipped' not in obj:
                 obj['tricosine_flipped'] = angle_to_trisector_affinity(math.tau - obj['alpha'])
             return img, obj['tricosine_flipped']
-
-        elif orientation == 'alpha':
+        elif orientation_type == 'alpha':
             if 'alpha_normed_flipped' not in obj:
                 obj['alpha_normed_flipped'] = angle_to_angle_normed(math.tau - obj['alpha'])
             return img, obj['alpha_normed_flipped']  
-
-        elif orientation == 'rot_y':
+        elif orientation_type == 'rot_y':
             if 'rot_y_normed_flipped' not in obj:
                 obj['rot_y_normed_flipped'] = angle_to_angle_normed(math.tau - obj['rot_y'])
             return img, obj['rot_y_normed_flipped']
-
         else:
-            raise Exception("No such orientation type: %s" % orientation)
+            raise Exception("No such orientation type: %s" % orientation_type)
     else:
-        if orientation == 'multibin':
+        if orientation_type == 'multibin':
             if 'multibin_orientation' not in obj:
                 # Get orientation and confidence values for flip
-                orientation, confidence = alpha_to_multibin_orientation_confidence(obj["alpha"])
-                obj['multibin_orientation'] = orientation
-                obj['multibin_confidence'] = confidence
-            return img, obj['multibin_orientation'], obj['multibin_confidence']
-            
-        elif orientation == 'tricosine':
+                multibin_orientation, multibin_confidence = alpha_to_multibin_orientation_confidence(obj["alpha"])
+                obj['multibin_orientation'] = multibin_orientation
+                obj['multibin_confidence'] = multibin_confidence
+            return img, np.concatenate((obj['multibin_orientation'], obj['multibin_confidence']), axis=-1)
+        elif orientation_type == 'tricosine':
             if 'tricosine' not in obj:
                 obj['tricosine'] = angle_to_trisector_affinity(obj['alpha'])
             return img, obj['tricosine']
-
-        elif orientation == 'alpha':
+        elif orientation_type == 'alpha':
             if 'alpha_normed' not in obj:
                 obj['alpha_normed'] = angle_to_angle_normed(obj['alpha'])
-            return img, obj['alpha_normed'] 
-
-        elif orientation == 'rot_y':
+            return img, obj['alpha_normed']
+        elif orientation_type == 'rot_y':
             if 'rot_y_normed' not in obj:
                 obj['rot_y_normed'] = angle_to_angle_normed(obj['rot_y'])
             return img, obj['rot_y_normed']
-
         else:
-            raise Exception("No such orientation type: %s" % orientation)
+            raise Exception("No such orientation type: %s" % orientation_type)
 
 class KittiGenerator(Sequence):
     '''Creates A KittiGenerator Sequence
     Args:
         label_dir (str) : path to the directory with labels
         image_dir (str) : path to the image directory
-        mode (str): tells whether to be in train, val or all mode
+        mode (str): tells whether to be in train, viz, or all mode
         batch_size (int) : tells batchsize to use
         orientation_type (str): type of oridentation multibin, tricosine, alpha, or rot_y
         val_split (float): what percentage data reserved for validation
@@ -193,6 +179,7 @@ class KittiGenerator(Sequence):
     def __init__(self, label_dir: str = 'dataset/training/label_2/',
                  image_dir: str = 'dataset/training/image_2/',
                  mode: str = "train",
+                 get_kitti_line: bool = False,
                  batch_size: int = 8,
                  orientation_type: str = "multibin",
                  val_split: float = 0.0,
@@ -203,6 +190,7 @@ class KittiGenerator(Sequence):
             self.all_objs = get_all_objs_from_kitti_dir(label_dir, image_dir)
         else:
             self.all_objs = all_objs
+        self.get_kitti_line = get_kitti_line
         self.mode = mode
         self.batch_size = batch_size
         self.orientation_type = orientation_type
@@ -226,45 +214,44 @@ class KittiGenerator(Sequence):
         r_bound = l_bound + self.batch_size  # end of key index
         r_bound = r_bound if r_bound < len(self.obj_ids) else len(self.obj_ids)  # check for key index overflow
         num_batch_objs = r_bound - l_bound
-        img_batch = np.empty((num_batch_objs, NORM_H, NORM_W, 3))  # batch of images
 
+        # prepare batch of images
+        img_batch = np.empty((num_batch_objs, NORM_H, NORM_W, 3))
+
+        # prepare batch of orientation_type tensor
         if self.orientation_type == "multibin":
-            # prepare output tensors
-            orientation_batch = np.empty((num_batch_objs, *ORIENTATION_SHAPE))
-            confidence_batch = np.empty((num_batch_objs, *CONFIDENCE_SHAPE))
-            
-            for i, key in enumerate(self.obj_ids[l_bound:r_bound]):
-                image, orientation, confidence = prepare_generator_output(self.image_dir, self.all_objs[key], self.orientation_type)
-                img_batch[i] = image
-                orientation_batch[i] = orientation
-                confidence_batch[i] = confidence
-
-            orientation_confidence_batch = np.concatenate((orientation_batch, confidence_batch), axis=-1)
-            return img_batch, {'o_c_layer_output': orientation_confidence_batch}
-
+            orientation_batch = np.empty((num_batch_objs, *MULTIBIN_SHAPE))
         elif self.orientation_type == 'tricosine':
-
-            tricosine_batch = np.empty((num_batch_objs, 3))
-
-            for i, key in enumerate(self.obj_ids[l_bound:r_bound]):
-                image, tricosine = prepare_generator_output(self.image_dir, self.all_objs[key], self.orientation_type)
-                img_batch[i] = image
-                tricosine_batch[i] = tricosine
-
-            return img_batch, tricosine_batch.astype(NUMPY_TYPE)
-
+            orientation_batch = np.empty((num_batch_objs, *TRICOSINE_SHAPE))
         elif self.orientation_type == "alpha" or self.orientation_type == 'rot_y':
-
-            angle_batch = np.empty((num_batch_objs, 1))
-
-            for i, key in enumerate(self.obj_ids[l_bound:r_bound]):
-                image, angle = prepare_generator_output(self.image_dir, self.all_objs[key], self.orientation_type)
-                img_batch[i] = image
-                angle_batch[i] = angle
-
-            return img_batch, angle_batch.astype(NUMPY_TYPE)
+            orientation_batch = np.empty((num_batch_objs, *ALPHA_ROT_Y_SHAPE))
         else:
             raise Exception("Invalid Orientation Type")
+
+        # prepare kitti line output for visualization
+        line_batch = []
+
+        # insert data
+        for i, obj_id in enumerate(self.obj_ids[l_bound:r_bound]):
+            img, orientation = prepare_generator_output(self.image_dir, self.all_objs[obj_id], self.orientation_type)
+            img_batch[i] = img
+            orientation_batch[i] = orientation
+            if self.get_kitti_line:
+                line_batch.append(self.all_objs[obj_id]['line'])
+ 
+        if self.orientation_type == "multibin":
+            y = {MULTIBIN_LAYER_OUTPUT_NAME: orientation_batch}
+        elif self.orientation_type == 'tricosine':
+            y = {TRICOSINE_LAYER_OUTPUT_NAME: orientation_batch}
+        elif self.orientation_type == "alpha" or self.orientation_type == 'rot_y':
+            y = {ALPHA_ROT_Y_LAYER_OUTPUT_NAME: orientation_batch}
+        else:
+            raise Exception("Invalid Orientation Type")
+        
+        if self.get_kitti_line:
+            y['line_batch'] = line_batch
+
+        return img_batch, y
 
     def on_epoch_end(self):
         np.random.shuffle(self.obj_ids)
