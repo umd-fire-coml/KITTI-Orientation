@@ -1,14 +1,17 @@
 import tensorflow as tf
 from build_model import build_model
-from loss_function import get_loss_function
+from loss_function import get_loss_params
+from metrics import get_metrics
 import data_processing as dp
 import os
 import argparse
 import time
 from datetime import datetime
-from metrics import OrientationAccuracy
 
 import tensorflow as tf
+
+tf.autograph.experimental.do_not_convert
+
 # set up tensorflow GPU
 tf.config.list_physical_devices('GPU')
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -82,8 +85,11 @@ if __name__ == "__main__":
 
     # Building Model
     model = build_model(ORIENTATION)
-    model.compile(loss=get_loss_function(ORIENTATION), optimizer='adam',
-                  metrics=[OrientationAccuracy(ORIENTATION)], run_eagerly=True)
+
+    loss_func = get_loss_params(ORIENTATION)
+
+    model.compile(loss=loss_func, optimizer='adam',
+                  metrics=get_metrics(ORIENTATION), run_eagerly=True)
 
     start_time = time.time()
 

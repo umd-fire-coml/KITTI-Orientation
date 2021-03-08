@@ -24,7 +24,7 @@ def add_output_layers(orientation_type, backbone_layer):
 
         c_layer = add_dense_layers(backbone_layer, CONFIDENCE_SHAPE, out_layer_name='c_layer_output')
 
-        out_layer = layers.concatenate([o_layer, c_layer], axis=-1, name=MULTIBIN_LAYER_OUTPUT_NAME)
+        out_layer = layers.Concatenate(axis=-1, name=MULTIBIN_LAYER_OUTPUT_NAME, trainable=False)([o_layer, c_layer])
         # c_layer = layers.Softmax(name='c_layer_output')(c_layer_pre)
         # return o_layer, c_layer_pre, c_layer
         return out_layer

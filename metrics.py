@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from add_output_layers import MULTIBIN_LAYER_OUTPUT_NAME, TRICOSINE_LAYER_OUTPUT_NAME, ALPHA_ROT_Y_LAYER_OUTPUT_NAME
 from orientation_converters import (multibin_orientation_confidence_to_alpha,
                                     trisector_affinity_to_angle,
                                     angle_normed_to_angle_rad,
@@ -8,12 +9,18 @@ from orientation_converters import (multibin_orientation_confidence_to_alpha,
 
 TF_TYPE = tf.float32
 
+def get_metrics(orientation_type):
+    if orientation_type == 'multibin':
+        return {MULTIBIN_LAYER_OUTPUT_NAME: OrientationAccuracy(orientation_type)}
+    elif orientation_type == 'tricosine':
+        return {TRICOSINE_LAYER_OUTPUT_NAME: OrientationAccuracy(orientation_type)}
+    elif orientation_type == 'alpha' or orientation_type == 'rot_y': 
+        return {ALPHA_ROT_Y_LAYER_OUTPUT_NAME: OrientationAccuracy(orientation_type)}
+
 # Stateful metric over the entire dataset.
 # Because metrics are evaluated for each batch during training and evaluation,
 # this metric will keep track of average accuracy over the entire dataset,
 # not the average accuracy of each batch.
-
-
 class OrientationAccuracy(tf.keras.metrics.Metric):
 
     # Create the state variables in __init__
@@ -35,6 +42,7 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
         else:
             return self.recursive_aos(tensor)
 
+    @tf.autograph.experimental.do_not_convert
     def recursive_aos(self, tensor):  # test this
         # recursively unpacks tensor until the tensor dimension is same shape as orientation_converters
         tensor_shape = tensor.get_shape()
