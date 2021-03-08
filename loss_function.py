@@ -25,8 +25,8 @@ def __loss_multibin_confidence(y_true, y_pred):
 loss_multibin_weights = {'o_layer_output': 8.0, 'c_layer_output': 1.0}
 
 def __loss_multibin_orientation_confidence(y_true, y_pred):
-    loss_orientation = __loss_multibin_orientation(y_true[:,:,:2], y_pred[:,:,:2])
-    loss_confidence = __loss_multibin_confidence(y_true[:,:,2:], y_pred[:,:,2:])
+    loss_orientation = __loss_multibin_orientation(y_true[..., :2], y_pred[..., :2])
+    loss_confidence = __loss_multibin_confidence(y_true[..., 2:], y_pred[..., 2:])
     return loss_multibin_weights['o_layer_output']*loss_orientation + loss_multibin_weights['c_layer_output']*loss_confidence
 
 loss_multibin = {MULTIBIN_LAYER_OUTPUT_NAME: __loss_multibin_orientation_confidence}

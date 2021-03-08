@@ -42,7 +42,7 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
             if tensor_shape == MULTIBIN_SHAPE:
                 arr = tensor.numpy()
                 alpha = multibin_orientation_confidence_to_alpha(
-                    arr[:, :2], arr[:, 2:])
+                    arr[..., :2], arr[..., 2:])
                 return tf.constant(alpha, dtype=TF_TYPE)
             elif len(tensor_shape) > len(MULTIBIN_SHAPE):
                 return tf.stack([self.recursive_aos(un_packed_tensor)
