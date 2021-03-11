@@ -1,9 +1,9 @@
 import tensorflow as tf
 import numpy as np
-from add_output_layers import MULTIBIN_LAYER_OUTPUT_NAME, TRICOSINE_LAYER_OUTPUT_NAME, ALPHA_ROT_Y_LAYER_OUTPUT_NAME
+from add_output_layers import TRICOSINE_LAYER_OUTPUT_NAME, ALPHA_ROT_Y_LAYER_OUTPUT_NAME
 from orientation_converters import (multibin_orientation_confidence_to_alpha,
                                     trisector_affinity_to_angle,
-                                    angle_normed_to_angle_rad,
+                                    angle_normed_to_angle_rad, ORIENTATION_SHAPE, CONFIDENCE_SHAPE,
                                     MULTIBIN_SHAPE,
                                     TRICOSINE_SHAPE)
 
@@ -11,7 +11,8 @@ TF_TYPE = tf.float32
 
 def get_metrics(orientation_type):
     if orientation_type == 'multibin':
-        return {MULTIBIN_LAYER_OUTPUT_NAME: OrientationAccuracy(orientation_type)}
+        multibin_metric = MultibinAccuracy()
+        return {'o_layer_output': multibin_metric, 'c_layer_output': multibin_metric}
     elif orientation_type == 'tricosine':
         return {TRICOSINE_LAYER_OUTPUT_NAME: OrientationAccuracy(orientation_type)}
     elif orientation_type == 'alpha' or orientation_type == 'rot_y': 
@@ -29,7 +30,7 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
 
         # internal state variables
         self.orientation_type = orientation_type
-        self.num_pairs = tf.Variable(0)  # num of pairs of y_true, y_pred
+        self.num_pairs = tf.Variable(0.)  # num of pairs of y_true, y_pred
         # sum of accuracies for each pair of y_true, y_pred
         self.sum_accuracy = tf.Variable(0.)
         self.cur_accuracy = self.add_weight(
@@ -46,18 +47,7 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
     def recursive_aos(self, tensor):  # test this
         # recursively unpacks tensor until the tensor dimension is same shape as orientation_converters
         tensor_shape = tensor.get_shape()
-        if self.orientation_type == 'multibin':
-            if tensor_shape == MULTIBIN_SHAPE:
-                arr = tensor.numpy()
-                alpha = multibin_orientation_confidence_to_alpha(
-                    arr[..., :2], arr[..., 2:])
-                return tf.constant(alpha, dtype=TF_TYPE)
-            elif len(tensor_shape) > len(MULTIBIN_SHAPE):
-                return tf.stack([self.recursive_aos(un_packed_tensor)
-                                 for un_packed_tensor in tf.unstack(tensor)])
-            else:
-                raise Exception("multibin recursive_aos error")
-        elif self.orientation_type == 'tricosine':
+        if self.orientation_type == 'tricosine':
             if tensor_shape == TRICOSINE_SHAPE:
                 arr = tensor.numpy()
                 alpha = trisector_affinity_to_angle(arr)
@@ -78,15 +68,13 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
         alpha_pred = self.aos_convert_to_alpha(y_pred)
         alpha_true = self.aos_convert_to_alpha(y_true)
         alpha_delta = alpha_true - alpha_pred
-        normalized = 0.5 * (tf.math.cos(alpha_delta) + 1)
-        batch_accuracies = tf.math.reduce_mean(normalized)
+        orientation_accuracies = 0.5 * (tf.math.cos(alpha_delta) + 1)
+        batch_sum_accuracy = tf.math.reduce_sum(orientation_accuracies)
 
         # update the cur_accuracy
-        self.sum_accuracy = tf.reduce_sum(
-            batch_accuracies) + self.sum_accuracy  # convert to float
-        self.num_pairs = tf.size(batch_accuracies) + self.num_pairs
-        self.cur_accuracy = tf.math.divide(
-            self.sum_accuracy, tf.cast(self.num_pairs, tf.float32))
+        self.sum_accuracy = self.sum_accuracy + batch_sum_accuracy
+        self.num_pairs = self.num_pairs + tf.cast(tf.size(orientation_accuracies), dtype=TF_TYPE)
+        self.cur_accuracy = tf.math.divide(self.sum_accuracy, self.num_pairs)
 
     # Return the metric result in result()
     def result(self):
@@ -98,3 +86,67 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
         # sum of accuracies for each pair of y_true, y_pred
         self.sum_accuracy = tf.Variable(0.)
         self.cur_accuracy = self.add_weight(name='oa', initializer='zeros')  # current state of accuracy
+
+class MultibinAccuracy(tf.keras.metrics.Metric):
+# Create the state variables in __init__
+    def __init__(self, name='orientation_accuracy', **kwargs):
+        super(MultibinAccuracy, self).__init__(name=name, **kwargs)
+
+        # internal state variables
+        self.o_layer_y_true = None
+        self.o_layer_y_pred = None
+        self.c_layer_y_true = None
+        self.c_layer_y_pred = None
+
+    @tf.autograph.experimental.do_not_convert
+    def recursive_aos(self, tensor):  # test this
+        # recursively unpacks tensor until the tensor dimension is same shape as orientation_converters
+        tensor_shape = tensor.get_shape()
+        if tensor_shape == MULTIBIN_SHAPE:
+            arr = tensor.numpy()
+            alpha = multibin_orientation_confidence_to_alpha(
+                arr[..., :2], arr[..., 2:])
+            return tf.constant(alpha, dtype=TF_TYPE)
+        elif len(tensor_shape) > len(MULTIBIN_SHAPE):
+            return tf.stack([self.recursive_aos(un_packed_tensor)
+                                for un_packed_tensor in tf.unstack(tensor)])
+        else:
+            raise Exception("multibin recursive_aos error")
+
+    # Update the variables given y_true and y_pred in update_state()
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        if y_true.get_shape()[-2:] == ORIENTATION_SHAPE:
+            if self.o_layer_y_true == None:
+                self.o_layer_y_true = y_true
+                self.o_layer_y_pred = y_pred
+            else:
+                self.o_layer_y_true = tf.concat([self.o_layer_y_true, y_true], axis=0)
+                self.o_layer_y_pred = tf.concat([self.o_layer_y_pred, y_pred], axis=0)
+        elif y_true.get_shape()[-2:] == CONFIDENCE_SHAPE:
+            if self.c_layer_y_true == None:
+                self.c_layer_y_true = y_true
+                self.c_layer_y_pred = y_pred
+            else:
+                self.c_layer_y_true = tf.concat([self.c_layer_y_true, y_true], axis=0)
+                self.c_layer_y_pred = tf.concat([self.c_layer_y_pred, y_pred], axis=0)
+        else:
+            raise Exception("Unknown shape")
+
+
+    # Return the metric result in result()
+    def result(self):
+        multibin_y_true = tf.concat([self.o_layer_y_true, self.c_layer_y_true], axis=-1)
+        alpha_y_true = self.recursive_aos(multibin_y_true)
+        multibin_y_pred = tf.concat([self.o_layer_y_pred, self.c_layer_y_pred], axis=-1)
+        alpha_y_pred = self.recursive_aos(multibin_y_pred)
+
+        alpha_delta = alpha_y_true - alpha_y_pred
+        orientation_accuracies = 0.5 * (tf.math.cos(alpha_delta) + 1)
+        return tf.math.reduce_mean(orientation_accuracies)
+
+    # Reset state
+    def reset_states(self):
+        self.o_layer_y_true = None
+        self.o_layer_y_pred = None
+        self.c_layer_y_true = None
+        self.c_layer_y_pred = None

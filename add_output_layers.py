@@ -4,7 +4,6 @@ from tensorflow import math as K
 from functools import reduce
 from orientation_converters import ORIENTATION_SHAPE, CONFIDENCE_SHAPE, TRICOSINE_SHAPE, ALPHA_ROT_Y_SHAPE
 
-MULTIBIN_LAYER_OUTPUT_NAME = 'multibin_layer_output'
 TRICOSINE_LAYER_OUTPUT_NAME = 'tricosine_layer_output'
 ALPHA_ROT_Y_LAYER_OUTPUT_NAME = 'alpha_rot_y_layer_output'
 
@@ -23,11 +22,9 @@ def add_output_layers(orientation_type, backbone_layer):
         o_layer = layers.Lambda(lambda a: K.l2_normalize(a,axis=2), name='o_layer_output')(o_layer) # l2_normalization
 
         c_layer = add_dense_layers(backbone_layer, CONFIDENCE_SHAPE, out_layer_name='c_layer_output')
-
-        out_layer = layers.Concatenate(axis=-1, name=MULTIBIN_LAYER_OUTPUT_NAME, trainable=False)([o_layer, c_layer])
         # c_layer = layers.Softmax(name='c_layer_output')(c_layer_pre)
         # return o_layer, c_layer_pre, c_layer
-        return out_layer
+        return o_layer, c_layer
     elif orientation_type == 'tricosine':
         output_shape = TRICOSINE_SHAPE
         out_layer_name = TRICOSINE_LAYER_OUTPUT_NAME

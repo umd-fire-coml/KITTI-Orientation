@@ -12,7 +12,7 @@ from tqdm import tqdm
 from random import random
 from orientation_converters import (angle_to_trisector_affinity, 
     alpha_to_multibin_orientation_confidence, angle_to_angle_normed, MULTIBIN_SHAPE, TRICOSINE_SHAPE, ALPHA_ROT_Y_SHAPE)
-from add_output_layers import MULTIBIN_LAYER_OUTPUT_NAME, TRICOSINE_LAYER_OUTPUT_NAME, ALPHA_ROT_Y_LAYER_OUTPUT_NAME
+from add_output_layers import TRICOSINE_LAYER_OUTPUT_NAME, ALPHA_ROT_Y_LAYER_OUTPUT_NAME
 
 # constants
 NORM_H, NORM_W = 224, 224
@@ -240,7 +240,7 @@ class KittiGenerator(Sequence):
                 line_batch.append(self.all_objs[obj_id]['line'])
  
         if self.orientation_type == "multibin":
-            y = {MULTIBIN_LAYER_OUTPUT_NAME: orientation_batch}
+            y = {'o_layer_output': orientation_batch[...,:2],  'c_layer_output': orientation_batch[...,2:]}
         elif self.orientation_type == 'tricosine':
             y = {TRICOSINE_LAYER_OUTPUT_NAME: orientation_batch}
         elif self.orientation_type == "alpha" or self.orientation_type == 'rot_y':

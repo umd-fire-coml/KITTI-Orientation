@@ -10,8 +10,6 @@ from datetime import datetime
 
 import tensorflow as tf
 
-tf.autograph.experimental.do_not_convert
-
 # set up tensorflow GPU
 tf.config.list_physical_devices('GPU')
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -86,9 +84,9 @@ if __name__ == "__main__":
     # Building Model
     model = build_model(ORIENTATION)
 
-    loss_func = get_loss_params(ORIENTATION)
+    loss_func, loss_weights = get_loss_params(ORIENTATION)
 
-    model.compile(loss=loss_func, optimizer='adam',
+    model.compile(loss=loss_func, loss_weights=loss_weights, optimizer='adam',
                   metrics=get_metrics(ORIENTATION), run_eagerly=True)
 
     start_time = time.time()
