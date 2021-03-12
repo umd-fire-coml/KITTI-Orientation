@@ -197,7 +197,7 @@ class KittiGenerator(Sequence):
         self.obj_ids = list(range(len(self.all_objs)))  # list of all object indexes for the generator
         if val_split > 0.0:
             assert mode != 'all' and val_split < 1.0
-            cutoff = int(val_split * len(self.all_objs))
+            cutoff = int(val_split * len(self.all_objs))  
             if self.mode == "train":
                 self.obj_ids = self.obj_ids[cutoff:]
             elif self.mode == "val":

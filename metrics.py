@@ -33,8 +33,7 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
         self.num_pairs = tf.Variable(0.)  # num of pairs of y_true, y_pred
         # sum of accuracies for each pair of y_true, y_pred
         self.sum_accuracy = tf.Variable(0.)
-        self.cur_accuracy = self.add_weight(
-            name='oa', initializer='zeros')  # current state of accuracy
+        self.cur_accuracy = tf.Variable(0.)  # current state of accuracy
 
     def aos_convert_to_alpha(self, tensor):
         # if orientation type is already 'alpha' or 'rot_y', no need to change
@@ -68,7 +67,7 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
         alpha_pred = self.aos_convert_to_alpha(y_pred)
         alpha_true = self.aos_convert_to_alpha(y_true)
         alpha_delta = alpha_true - alpha_pred
-        orientation_accuracies = 0.5 * (tf.math.cos(alpha_delta) + 1)
+        orientation_accuracies = 0.5 * (tf.math.cos(alpha_delta) + 1.0)
         batch_sum_accuracy = tf.math.reduce_sum(orientation_accuracies)
 
         # update the cur_accuracy
@@ -141,7 +140,7 @@ class MultibinAccuracy(tf.keras.metrics.Metric):
         alpha_y_pred = self.recursive_aos(multibin_y_pred)
 
         alpha_delta = alpha_y_true - alpha_y_pred
-        orientation_accuracies = 0.5 * (tf.math.cos(alpha_delta) + 1)
+        orientation_accuracies = 0.5 * (tf.math.cos(alpha_delta) + 1.0)
         return tf.math.reduce_mean(orientation_accuracies)
 
     # Reset state
