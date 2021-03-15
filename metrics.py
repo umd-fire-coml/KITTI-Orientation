@@ -30,10 +30,7 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
 
         # internal state variables
         self.orientation_type = orientation_type
-        self.num_pairs = tf.Variable(0.)  # num of pairs of y_true, y_pred
-        # sum of accuracies for each pair of y_true, y_pred
-        self.sum_accuracy = tf.Variable(0.)
-        self.cur_accuracy = tf.Variable(0.)  # current state of accuracy
+        self.reset_states()
 
     def aos_convert_to_alpha(self, tensor):
         # if orientation type is already 'alpha' or 'rot_y', no need to change
@@ -71,20 +68,18 @@ class OrientationAccuracy(tf.keras.metrics.Metric):
         batch_sum_accuracy = tf.math.reduce_sum(orientation_accuracies)
 
         # update the cur_accuracy
-        self.sum_accuracy = self.sum_accuracy + batch_sum_accuracy
-        self.num_pairs = self.num_pairs + tf.cast(tf.size(orientation_accuracies), dtype=TF_TYPE)
-        self.cur_accuracy = tf.math.divide(self.sum_accuracy, self.num_pairs)
+        self.sum_accuracy.assign_add(batch_sum_accuracy)
+        self.num_pairs.assign_add(tf.cast(tf.size(orientation_accuracies), dtype=TF_TYPE))
 
     # Return the metric result in result()
     def result(self):
-        return self.cur_accuracy
+        return tf.math.divide(self.sum_accuracy, self.num_pairs)
 
     # Reset state
     def reset_states(self):
-        self.num_pairs = tf.Variable(0)  # num of pairs of y_true, y_pred
+        self.num_pairs = tf.Variable(0., dtype=TF_TYPE)  # num of pairs of y_true, y_pred
         # sum of accuracies for each pair of y_true, y_pred
-        self.sum_accuracy = tf.Variable(0.)
-        self.cur_accuracy = self.add_weight(name='oa', initializer='zeros')  # current state of accuracy
+        self.sum_accuracy = tf.Variable(0., dtype=TF_TYPE)
 
 class MultibinAccuracy(tf.keras.metrics.Metric):
 # Create the state variables in __init__

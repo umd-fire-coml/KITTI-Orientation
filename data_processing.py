@@ -201,7 +201,7 @@ class KittiGenerator(Sequence):
             if self.mode == "train":
                 self.obj_ids = self.obj_ids[cutoff:]
             elif self.mode == "val":
-                self.obj_ids = self.obj_ids[:cutoff]
+                self.obj_ids = self.obj_ids[:cutoff] # reduce range for testing
             else:
                 raise Exception("invalid mode")
         self.on_epoch_end()
